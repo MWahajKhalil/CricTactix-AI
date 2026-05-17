@@ -13,6 +13,9 @@ npm-debug.log*
 # Data files
 data/raw/
 data/processed/
+*.db
+*.sqlite
+*.sqlite3
 
 # OS files
 .DS_Store

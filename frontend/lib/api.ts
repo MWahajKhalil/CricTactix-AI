@@ -17,3 +17,20 @@ export async function checkBackendHealth() {
     throw error;
   }
 }
+
+export async function getMatches() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/matches/`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch matches: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching matches:", error);
+    return { count: 0, matches: [] };
+  }
+}
