@@ -21,9 +21,12 @@ export default async function Home() {
           <h1 className="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-emerald-500">
             AI Cricket Tactical Analyst
           </h1>
-          <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">
+          <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-8">
             Your personal AI coach powered by real match data. Ask questions, analyze matchups, and uncover tactical insights.
           </p>
+          <a href="/chat" className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            Talk to AI Agent
+          </a>
         </div>
         
         {/* Connection Status */}

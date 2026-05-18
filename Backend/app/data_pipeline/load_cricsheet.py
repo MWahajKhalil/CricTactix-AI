@@ -34,11 +34,17 @@ def load_match_data():
 
     print("Extracting and parsing real Cricsheet data...")
     with zipfile.ZipFile(zip_path, "r") as z:
-        json_files = [f for f in z.namelist() if f.endswith('.json')]
+        json_files = sorted([f for f in z.namelist() if f.endswith('.json')])
         
-        # Parse the first 10 matches so it's fast but gives you plenty of real data
+        # Parse all available matches by default. Set MATCH_LOAD_LIMIT in the environment
+        # to load only a smaller subset for faster testing.
+        match_limit = os.getenv("MATCH_LOAD_LIMIT")
+        if match_limit and match_limit.isdigit():
+            json_files = json_files[: int(match_limit)]
+            print(f"Loading first {match_limit} matches due to MATCH_LOAD_LIMIT")
+
         matches_parsed = 0
-        for target_file in json_files[:10]:
+        for target_file in json_files:
             print(f"Parsing {target_file}...")
             with z.open(target_file) as f:
                 data = json.load(f)
