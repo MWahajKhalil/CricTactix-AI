@@ -15,6 +15,7 @@ def get_all_matches(db: Session = Depends(get_db)):
     """
     Fetch all loaded matches from the database.
     """
+    
     matches = db.query(Match).all()
     if not matches:
         return {"message": "No matches found. Did you run the load_cricsheet.py script?"}
