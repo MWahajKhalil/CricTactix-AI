@@ -1,102 +1,123 @@
+import Link from "next/link";
 import { checkBackendHealth, getMatches } from "@/lib/api";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let backendData = null;
-  let error = null;
   let matchData = { count: 0, matches: [] };
 
   try {
     backendData = await checkBackendHealth();
-    matchData = await getMatches();
+    matchData = await getMatches(1, 6);
   } catch (e: any) {
-    error = e.message || "Failed to connect to backend.";
+    console.error(e);
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-50 font-sans dark:bg-black text-black dark:text-white">
-      <main className="flex flex-col items-center gap-12 w-full max-w-5xl mx-auto p-8 pt-16">
-        
-        {/* Header Section */}
-        <div className="text-center space-y-4">
-          <h1 className="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-emerald-500">
-            AI Cricket Tactical Analyst
-          </h1>
-          <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-8">
-            Your personal AI coach powered by real match data. Ask questions, analyze matchups, and uncover tactical insights.
-          </p>
-          <a href="/chat" className="inline-block px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-            Talk to AI Agent
-          </a>
-        </div>
-        
-        {/* Connection Status */}
-        <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-6 py-3 rounded-full border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
-          <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">
-            System Status:
-          </span>
-          {backendData ? (
-            <div className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-full font-medium flex items-center gap-2 text-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              Backend Online
+    <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.16),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.12),_transparent_30%)] py-10">
+      <main className="mx-auto flex max-w-6xl flex-col gap-16 px-6 sm:px-8 lg:px-12">
+        <section className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] items-start">
+          <div className="space-y-8">
+            <div className="max-w-2xl space-y-4">
+              <p className="inline-flex rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-1 text-sm font-semibold uppercase tracking-[0.3em] text-blue-200">
+                Powered by PSL data
+              </p>
+              <h1 className="text-5xl font-semibold tracking-tight text-white sm:text-6xl">
+                Cricket insights built for tactical decisions.
+              </h1>
+              <p className="max-w-xl text-base leading-8 text-zinc-300 sm:text-lg">
+                Explore PSL match results, navigate match details, and ask the AI analyst tactical questions from a real match database.
+              </p>
             </div>
-          ) : (
-            <div className="px-3 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-full font-medium flex items-center gap-2 text-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-              Offline
-            </div>
-          )}
-        </div>
 
-        {/* Database Overview */}
-        <div className="w-full mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Matches in Database</h2>
-            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg text-sm font-semibold">
-              {matchData.count} Matches Loaded
-            </span>
+            <div className="grid gap-4 sm:max-w-md">
+              <Link href="/matches" className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-base font-semibold text-zinc-950 shadow-xl shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-100">
+                Browse Matches
+              </Link>
+              <Link href="/chat" className="inline-flex items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 px-6 py-3 text-base font-semibold text-white transition hover:bg-zinc-800">
+                Open AI Chat
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
+            <p className="text-sm uppercase tracking-[0.24em] text-blue-300">Quick overview</p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-3xl bg-zinc-950/80 p-5">
+                <p className="text-sm text-zinc-400">Backend status</p>
+                <p className="mt-3 text-3xl font-semibold text-white">
+                  {backendData ? "Online" : "Offline"}
+                </p>
+              </div>
+              <div className="rounded-3xl bg-zinc-950/80 p-5">
+                <p className="text-sm text-zinc-400">Matches loaded</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{matchData.count}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/10 backdrop-blur-xl">
+            <p className="text-sm uppercase tracking-[0.28em] text-sky-300">Match exploration</p>
+            <h2 className="mt-4 text-2xl font-semibold text-white">Fast access to results</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              Browse the latest PSL matches, review winners and venues, and jump to tactical details with a single click.
+            </p>
+          </div>
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/10 backdrop-blur-xl">
+            <p className="text-sm uppercase tracking-[0.28em] text-emerald-300">AI support</p>
+            <h2 className="mt-4 text-2xl font-semibold text-white">Ask the analyst</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              Get tactical insights from your PSL database using natural language, with team, match, and performance context.
+            </p>
+          </div>
+          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/10 backdrop-blur-xl">
+            <p className="text-sm uppercase tracking-[0.28em] text-violet-300">Connected data</p>
+            <h2 className="mt-4 text-2xl font-semibold text-white">Real match results</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              The UI is directly connected to your backend API and current database, so you can explore actual loaded matches and details.
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-xl shadow-slate-950/10 backdrop-blur-xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Recent matches</p>
+              <h2 className="mt-2 text-3xl font-semibold text-white">Latest PSL results</h2>
+            </div>
+            <Link href="/matches" className="inline-flex items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800">
+              View all matches
+            </Link>
           </div>
 
           {matchData.matches.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {matchData.matches.map((match: any) => (
-                <div key={match.id} className="group relative bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                  <div className="absolute top-4 right-4 text-xs font-semibold text-zinc-400">
-                    {match.date}
-                  </div>
-                  <h3 className="text-sm font-medium text-blue-500 mb-4">{match.cricsheet_id}</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className={`font-bold ${match.winner === match.team_1 ? 'text-emerald-500' : ''}`}>
-                        {match.team_1}
-                      </span>
-                      <span className="text-xs text-zinc-400 font-bold px-2">VS</span>
-                      <span className={`font-bold text-right ${match.winner === match.team_2 ? 'text-emerald-500' : ''}`}>
-                        {match.team_2}
-                      </span>
+                <Link
+                  key={match.id}
+                  href={`/matches/${match.id}`}
+                  className="group block rounded-3xl border border-white/10 bg-zinc-950/80 p-6 transition hover:-translate-y-1 hover:border-sky-400/30 hover:bg-zinc-900"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-300">{match.match_type || "PSL"}</p>
+                      <h3 className="mt-3 text-xl font-semibold text-white">{match.team_1} vs {match.team_2}</h3>
                     </div>
-                    
-                    <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        Winner: <span className="font-semibold text-zinc-800 dark:text-zinc-200">{match.winner}</span>
-                      </p>
-                    </div>
+                    <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-300">{match.date}</span>
                   </div>
-                </div>
+                  <p className="mt-5 text-sm leading-6 text-zinc-400">Winner: <span className="font-semibold text-white">{match.winner || "TBD"}</span></p>
+                </Link>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-zinc-100 dark:bg-zinc-900/50 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700">
-              <p className="text-zinc-500 dark:text-zinc-400">No matches found in the database. Run the load script first.</p>
+            <div className="mt-8 rounded-3xl border border-dashed border-zinc-700/60 bg-zinc-950/70 p-10 text-center text-zinc-500">
+              No recent matches available. Ensure the backend and database are connected.
             </div>
           )}
-        </div>
-
+        </section>
       </main>
     </div>
   );

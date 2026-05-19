@@ -1,12 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { sendChatMessage } from "@/lib/api";
 import Link from "next/link";
+import { sendChatMessage } from "@/lib/api";
+
+const suggestedPrompts = [
+  "Which team has the most wins in the current dataset?",
+  "Show recent match winners and venues.",
+  "How many matches were played at the Gaddafi Stadium?",
+  "Who won the match between Karachi Kings and Lahore Qalandars?",
+];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<{ role: "user" | "ai"; content: string }[]>([
-    { role: "ai", content: "Hi! I am your AI Cricket Analyst. I have access to the PSL match database. Ask me anything, like 'Who won the most matches?' or 'How many runs did Shaheen Afridi score?'" }
+    {
+      role: "ai",
+      content:
+        "Hi! I am your AI Cricket Analyst. I have access to the PSL match database. Ask me anything about teams, results, venues, or tactical performance.",
+    },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -17,84 +28,114 @@ export default function ChatPage() {
 
     const userMessage = input.trim();
     setInput("");
-    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
     try {
       const response = await sendChatMessage(userMessage);
-      setMessages(prev => [...prev, { role: "ai", content: response.answer }]);
+      setMessages((prev) => [...prev, { role: "ai", content: response.answer }]);
     } catch (error: any) {
-      setMessages(prev => [...prev, { role: "ai", content: `Error: ${error.message}` }]);
+      setMessages((prev) => [...prev, { role: "ai", content: `Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-100">
-      <header className="sticky top-0 z-10 flex items-center justify-between px-8 py-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="px-3 py-1.5 text-sm font-medium bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
-            ← Back to Dashboard
-          </Link>
-          <h1 className="text-xl font-bold">Tactical Chat</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Agent Online</span>
+    <div className="flex min-h-screen flex-col bg-zinc-950 font-sans text-white">
+      <header className="sticky top-0 z-10 border-b border-zinc-800/70 bg-zinc-950/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 sm:px-8 lg:px-12">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="rounded-full border border-zinc-800/70 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+            >
+              ← Dashboard
+            </Link>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-300">AI Tactical Chat</p>
+              <h1 className="text-2xl font-semibold text-white">Ask the cricket analyst</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-emerald-400">
+            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/30" />
+            Agent connected
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col gap-6 overflow-y-auto">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] sm:max-w-[75%] rounded-3xl px-6 py-4 shadow-sm ${
-              msg.role === "user" 
-                ? "bg-blue-600 text-white rounded-br-sm" 
-                : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 rounded-bl-sm"
-            }`}>
-              <div className={`text-xs font-bold mb-2 tracking-wide uppercase ${msg.role === "user" ? "text-blue-200" : "text-emerald-500 dark:text-emerald-400"}`}>
-                {msg.role === "user" ? "You" : "AI Tactical Analyst"}
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-8 sm:px-8 lg:px-12">
+        <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="rounded-[2rem] border border-zinc-800/80 bg-zinc-900/95 p-6 shadow-xl shadow-black/20">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-sky-300">Interactive analysis</p>
+                <h2 className="mt-2 text-3xl font-semibold text-white">Explore match data with natural language.</h2>
               </div>
-              <div className="whitespace-pre-wrap leading-relaxed text-[15px]">
-                {msg.content}
-              </div>
+              <p className="rounded-full bg-white/5 px-4 py-2 text-sm text-zinc-300">Available on your local backend</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {suggestedPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => setInput(prompt)}
+                  className="rounded-3xl border border-zinc-800/80 bg-zinc-950/90 px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-sky-400/50 hover:bg-zinc-900"
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-3xl rounded-bl-sm px-6 py-5 shadow-sm flex items-center gap-2">
-              <div className="w-2.5 h-2.5 bg-blue-500/80 rounded-full animate-bounce"></div>
-              <div className="w-2.5 h-2.5 bg-emerald-500/80 rounded-full animate-bounce" style={{ animationDelay: "0.15s" }}></div>
-              <div className="w-2.5 h-2.5 bg-blue-500/80 rounded-full animate-bounce" style={{ animationDelay: "0.3s" }}></div>
-            </div>
+
+          <div className="rounded-[2rem] border border-zinc-800/80 bg-gradient-to-br from-blue-500/15 via-transparent to-emerald-500/10 p-6 shadow-xl shadow-sky-500/10">
+            <p className="text-sm uppercase tracking-[0.24em] text-sky-300">Tips</p>
+            <ul className="mt-6 space-y-4 text-sm leading-7 text-zinc-300">
+              <li>• Ask about match winners, venues, or tactical advantage.</li>
+              <li>• Use team names or specific match IDs for precise results.</li>
+              <li>• Explore the dataset faster than manual CSV inspection.</li>
+            </ul>
           </div>
-        )}
+        </div>
+
+        <section className="flex-1 rounded-[2rem] border border-zinc-800/80 bg-zinc-900/95 p-6 shadow-xl shadow-black/20">
+          <div className="space-y-6">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[90%] rounded-3xl px-6 py-5 shadow-sm transition ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white rounded-br-none"
+                      : "bg-zinc-950/90 border border-zinc-800 text-zinc-100 rounded-bl-none"
+                  }`}
+                >
+                  <div className={`mb-2 text-xs font-semibold uppercase tracking-[0.25em] ${msg.role === "user" ? "text-blue-200" : "text-emerald-300"}`}>
+                    {msg.role === "user" ? "You" : "AI Analyst"}
+                  </div>
+                  <div className="whitespace-pre-wrap leading-7 text-sm">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-3 rounded-3xl border border-zinc-800/80 bg-zinc-950/80 px-5 py-4">
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400" />
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400" />
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
 
-      <footer className="p-4 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative flex items-center">
-          <input 
-            type="text" 
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about player stats or match outcomes..." 
-            className="w-full bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-full py-4 pl-6 pr-32 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            disabled={isLoading}
-          />
-          <button 
-            type="submit" 
-            disabled={isLoading || !input.trim()}
-            className="absolute right-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send
-          </button>
-        </form>
+      <footer className="border-t border-zinc-800/70 bg-zinc-950/95 py-4 text-center text-sm text-zinc-500">
+        <p>AI chat is connected to your local backend. Ask anything about the loaded match dataset.</p>
       </footer>
+
+      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent" />
     </div>
   );
 }
