@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import extract
+from sqlalchemy import desc, extract, func
 
 from app.core.database import get_db
 from app.models.match import Match
@@ -21,6 +21,9 @@ def get_all_matches(
     team: Optional[str] = Query(None),
     match_type: Optional[str] = Query(None),
     year: Optional[int] = Query(None, ge=1800, le=3000),
+    venue: Optional[str] = Query(None),
+    venue_fuzzy: bool = Query(False, description="Use fuzzy venue matching when true."),
+    winner: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """
@@ -30,6 +33,8 @@ def get_all_matches(
     - `team` filters matches where either team_1 or team_2 matches the value.
     - `match_type` filters by match_type (e.g., T20, ODI).
     - `year` filters by the start_date year.
+    - `venue` filters by venue name.
+    - `venue_fuzzy` enables case-insensitive partial matching for venue aliases.
     """
 
     query = db.query(Match)
@@ -42,6 +47,15 @@ def get_all_matches(
 
     if year:
         query = query.filter(extract("year", Match.start_date) == year)
+
+    if venue:
+        if venue_fuzzy:
+            query = query.filter(Match.venue.ilike(f"%{venue}%"))
+        else:
+            query = query.filter(Match.venue == venue)
+
+    if winner:
+        query = query.filter(Match.winner == winner)
 
     total = query.count()
 
@@ -74,6 +88,24 @@ def get_all_matches(
         ],
     }
 
+
+@router.get("/stats/top-winners")
+def get_top_winners(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
+    winners = (
+        db.query(Match.winner, func.count().label("wins"))
+        .filter(Match.winner.isnot(None), Match.winner != "")
+        .group_by(Match.winner)
+        .order_by(desc("wins"))
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "top_winners": [
+            {"team": row[0], "wins": row[1]}
+            for row in winners
+        ]
+    }
 
 
 @router.get("/{match_id}")

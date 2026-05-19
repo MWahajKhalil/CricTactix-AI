@@ -1,28 +1,37 @@
 import Link from "next/link";
-import { getMatches } from "@/lib/api";
+import { getMatches, getTopWinners } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+type MatchItem = {
+  id: number;
+  team_1: string;
+  team_2: string;
+  match_type: string;
+  date: string;
+  winner: string;
+};
+
+type WinnerItem = {
+  team: string;
+  wins: number;
+};
+
 export default async function DashboardPage() {
   const { count, matches } = await getMatches(1, 50);
+  const topWinnerResponse = await getTopWinners(5);
 
   const teamCounts: Record<string, number> = {};
-  const winnerCounts: Record<string, number> = {};
 
-  matches.forEach((match: any) => {
+  matches.forEach((match: MatchItem) => {
     teamCounts[match.team_1] = (teamCounts[match.team_1] || 0) + 1;
     teamCounts[match.team_2] = (teamCounts[match.team_2] || 0) + 1;
-    if (match.winner) {
-      winnerCounts[match.winner] = (winnerCounts[match.winner] || 0) + 1;
-    }
   });
 
   const topTeams = Object.entries(teamCounts)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5);
-  const topWinners = Object.entries(winnerCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
+  const topWinners = (topWinnerResponse.top_winners || []) as WinnerItem[];
 
   return (
     <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_25%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.14),_transparent_30%)] py-10">
@@ -81,13 +90,13 @@ export default async function DashboardPage() {
                 <span className="text-xs uppercase tracking-[0.28em] text-slate-500">Most frequent</span>
               </div>
               <div className="mt-6 space-y-4">
-                {topWinners.map(([team, count], index) => (
-                  <div key={team} className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3 text-sm text-zinc-200">
+                {topWinners.map((item: WinnerItem, index: number) => (
+                  <div key={item.team} className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3 text-sm text-zinc-200">
                     <div className="flex items-center gap-3">
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-200">{index + 1}</span>
-                      <span>{team}</span>
+                      <span>{item.team}</span>
                     </div>
-                    <span className="font-semibold text-white">{count}</span>
+                    <span className="font-semibold text-white">{item.wins}</span>
                   </div>
                 ))}
               </div>
@@ -105,7 +114,7 @@ export default async function DashboardPage() {
               </Link>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {matches.slice(0, 6).map((match: any) => (
+              {matches.slice(0, 6).map((match: MatchItem) => (
                 <Link
                   key={match.id}
                   href={`/matches/${match.id}`}

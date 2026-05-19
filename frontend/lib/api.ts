@@ -18,9 +18,30 @@ export async function checkBackendHealth() {
   }
 }
 
-export async function getMatches(page = 1, per_page = 12) {
+type MatchFilters = {
+  team?: string;
+  winner?: string;
+  match_type?: string;
+  year?: string;
+  venue?: string;
+  venue_fuzzy?: boolean;
+};
+
+export async function getMatches(page = 1, per_page = 12, filters: MatchFilters = {}) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/matches/?page=${page}&per_page=${per_page}`, {
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(per_page),
+    });
+
+    if (filters.team) params.set("team", filters.team);
+    if (filters.winner) params.set("winner", filters.winner);
+    if (filters.match_type) params.set("match_type", filters.match_type);
+    if (filters.year) params.set("year", filters.year);
+    if (filters.venue) params.set("venue", filters.venue);
+    if (filters.venue_fuzzy) params.set("venue_fuzzy", "true");
+
+    const response = await fetch(`${API_BASE_URL}/api/matches/?${params.toString()}`, {
       cache: "no-store",
     });
 
@@ -32,6 +53,23 @@ export async function getMatches(page = 1, per_page = 12) {
   } catch (error) {
     console.error("Error fetching matches:", error);
     return { count: 0, matches: [] };
+  }
+}
+
+export async function getTopWinners(limit = 5) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/matches/stats/top-winners?limit=${limit}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch top winners: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching top winners:", error);
+    return { top_winners: [] };
   }
 }
 

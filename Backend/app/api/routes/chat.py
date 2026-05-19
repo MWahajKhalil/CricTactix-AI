@@ -18,31 +18,41 @@ router = APIRouter(
     tags=["Chat AI"]
 )
 
+AGENT_PROMPT_PREFIX = """
+You are a helpful cricket analytics SQL agent.
+Use only the `matches` table and the available columns: id, cricsheet_match_id, match_type,
+venue, city, start_date, team_1, team_2, winner.
+
+When the user asks about a venue or stadium name, prefer broad matching with SQL LIKE
+instead of exact equality, because some venues have variants in the database.
+For example, `Gaddafi Stadium` should match both `Gaddafi Stadium` and
+`Gaddafi Stadium, Lahore`.
+
+{dialect}
+Top {top_k} rows are available from the database.
+"""
+
 @router.post("/")
 async def chat_with_agent(request: ChatRequest):
     if not os.getenv("OPENAI_API_KEY"):
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is missing from .env file")
-        
+
     try:
-        # 1. Connect LangChain to the database we built in V1
         db = SQLDatabase.from_uri(settings.DATABASE_URL)
-        
-        # 2. Give the Agent a brain (OpenAI GPT-4o-mini is fast and cheap for this)
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        
-        # 3. Create the SQL Agent (combining the brain and the database tool)
+
         agent_executor = create_sql_agent(
-            llm=llm, 
-            db=db, 
-            agent_type="openai-tools", 
-            verbose=True
+            llm=llm,
+            db=db,
+            agent_type="openai-tools",
+            prefix=AGENT_PROMPT_PREFIX,
+            verbose=False,
         )
-        
-        # 4. Ask the agent the user's question
+
         response = agent_executor.invoke({"input": request.query})
-        
+
         return {"answer": response["output"]}
-        
+
     except Exception as e:
         print(f"Agent Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -4,6 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { sendChatMessage } from "@/lib/api";
 
+type Message = {
+  role: "user" | "ai";
+  content: string;
+};
+
 const suggestedPrompts = [
   "Which team has the most wins in the current dataset?",
   "Show recent match winners and venues.",
@@ -12,7 +17,7 @@ const suggestedPrompts = [
 ];
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<{ role: "user" | "ai"; content: string }[]>([
+  const [messages, setMessages] = useState<Message[]>([
     {
       role: "ai",
       content:
@@ -21,6 +26,7 @@ export default function ChatPage() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("Agent ready. Ask about PSL matches or tactical data.");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +36,16 @@ export default function ChatPage() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
+    setStatusMessage("Thinking...");
 
     try {
       const response = await sendChatMessage(userMessage);
       setMessages((prev) => [...prev, { role: "ai", content: response.answer }]);
-    } catch (error: any) {
-      setMessages((prev) => [...prev, { role: "ai", content: `Error: ${error.message}` }]);
+      setStatusMessage("Agent ready. Ask another question.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unable to reach the agent backend.";
+      setMessages((prev) => [...prev, { role: "ai", content: `Error: ${message}` }]);
+      setStatusMessage("Agent unavailable. Check backend / OPENAI_API_KEY.");
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +110,9 @@ export default function ChatPage() {
         </div>
 
         <section className="flex-1 rounded-[2rem] border border-zinc-800/80 bg-zinc-900/95 p-6 shadow-xl shadow-black/20">
+          <div className="mb-6 rounded-3xl border border-slate-800/80 bg-zinc-950/80 px-5 py-4 text-sm text-slate-300">
+            {statusMessage}
+          </div>
           <div className="space-y-6">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -127,6 +140,24 @@ export default function ChatPage() {
                 </div>
               </div>
             )}
+
+            <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask the AI about matches, teams, or tactical trends..."
+                className="flex-1 rounded-3xl border border-zinc-800/80 bg-zinc-950/90 px-5 py-4 text-sm text-white outline-none transition focus:border-sky-400/80 focus:ring-2 focus:ring-sky-400/20"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="inline-flex items-center justify-center rounded-3xl bg-blue-600 px-6 py-4 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoading ? "Sending..." : "Send"}
+              </button>
+            </form>
           </div>
         </section>
       </main>

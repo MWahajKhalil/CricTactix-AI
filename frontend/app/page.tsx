@@ -1,16 +1,36 @@
 import Link from "next/link";
 import { checkBackendHealth, getMatches } from "@/lib/api";
 
+type MatchSummary = {
+  id: number;
+  cricsheet_id: string;
+  date: string;
+  team_1: string;
+  team_2: string;
+  winner: string;
+  match_type: string;
+  venue: string;
+};
+
+type MatchResponse = {
+  count: number;
+  matches: MatchSummary[];
+};
+
+type BackendStatus = {
+  message: string;
+} | null;
+
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  let backendData = null;
-  let matchData = { count: 0, matches: [] };
+  let backendData: BackendStatus = null;
+  let matchData: MatchResponse = { count: 0, matches: [] };
 
   try {
     backendData = await checkBackendHealth();
     matchData = await getMatches(1, 6);
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e);
   }
 
@@ -95,7 +115,7 @@ export default async function Home() {
 
           {matchData.matches.length > 0 ? (
             <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {matchData.matches.map((match: any) => (
+              {matchData.matches.map((match: MatchSummary) => (
                 <Link
                   key={match.id}
                   href={`/matches/${match.id}`}

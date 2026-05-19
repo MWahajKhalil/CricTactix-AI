@@ -4,17 +4,18 @@ import { getMatchById } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 type MatchDetailPageProps = {
-  params: {
+  params: Promise<{
     matchId: string;
-  };
+  }>;
 };
 
 export default async function MatchDetailPage({ params }: MatchDetailPageProps) {
+  const resolvedParams = await params;
   let match = null;
 
   try {
-    match = await getMatchById(params.matchId);
-  } catch (error) {
+    match = await getMatchById(resolvedParams.matchId);
+  } catch {
     return (
       <div className="min-h-screen bg-zinc-950 py-16 px-6 text-white sm:px-8 lg:px-12">
         <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/10 bg-zinc-900/90 p-10 text-center shadow-2xl shadow-black/40">
