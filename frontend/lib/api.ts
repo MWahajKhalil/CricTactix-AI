@@ -19,12 +19,21 @@ export async function checkBackendHealth() {
 }
 
 type MatchFilters = {
-  team?: string;
+  search?: string;
+  team_1?: string;
+  team_2?: string;
   winner?: string;
   match_type?: string;
-  year?: string;
+  city?: string;
   venue?: string;
-  venue_fuzzy?: boolean;
+  year?: string;
+  year_from?: string;
+  year_to?: string;
+};
+
+type TopVenueItem = {
+  venue: string;
+  matches: number;
 };
 
 export async function getMatches(page = 1, per_page = 12, filters: MatchFilters = {}) {
@@ -34,12 +43,16 @@ export async function getMatches(page = 1, per_page = 12, filters: MatchFilters 
       per_page: String(per_page),
     });
 
-    if (filters.team) params.set("team", filters.team);
+    if (filters.search) params.set("search", filters.search);
+    if (filters.team_1) params.set("team_1", filters.team_1);
+    if (filters.team_2) params.set("team_2", filters.team_2);
     if (filters.winner) params.set("winner", filters.winner);
     if (filters.match_type) params.set("match_type", filters.match_type);
+    if (filters.city) params.set("city", filters.city);
     if (filters.year) params.set("year", filters.year);
+    if (filters.year_from) params.set("year_from", filters.year_from);
+    if (filters.year_to) params.set("year_to", filters.year_to);
     if (filters.venue) params.set("venue", filters.venue);
-    if (filters.venue_fuzzy) params.set("venue_fuzzy", "true");
 
     const response = await fetch(`${API_BASE_URL}/api/matches/?${params.toString()}`, {
       cache: "no-store",
@@ -70,6 +83,23 @@ export async function getTopWinners(limit = 5) {
   } catch (error) {
     console.error("Error fetching top winners:", error);
     return { top_winners: [] };
+  }
+}
+
+export async function getTopVenues(limit = 5) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/matches/stats/top-venues?limit=${limit}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch top venues: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching top venues:", error);
+    return { top_venues: [] as TopVenueItem[] };
   }
 }
 

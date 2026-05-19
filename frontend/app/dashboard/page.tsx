@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getMatches, getTopWinners } from "@/lib/api";
+import { getMatches, getTopVenues, getTopWinners } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +17,15 @@ type WinnerItem = {
   wins: number;
 };
 
+type TopVenueItem = {
+  venue: string;
+  matches: number;
+};
+
 export default async function DashboardPage() {
   const { count, matches } = await getMatches(1, 50);
   const topWinnerResponse = await getTopWinners(5);
+  const topVenueResponse = await getTopVenues(5);
 
   const teamCounts: Record<string, number> = {};
 
@@ -32,6 +38,8 @@ export default async function DashboardPage() {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5);
   const topWinners = (topWinnerResponse.top_winners || []) as WinnerItem[];
+  const topVenues = (topVenueResponse.top_venues || []) as TopVenueItem[];
+  const leadingVenue = topVenues[0];
 
   return (
     <div className="relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_25%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.14),_transparent_30%)] py-10">
@@ -51,31 +59,34 @@ export default async function DashboardPage() {
           </div>
 
           <div className="mt-10 grid gap-6 md:grid-cols-3">
-            <div className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_20px_80px_-40px_rgba(14,165,233,0.65)] backdrop-blur-xl">
               <p className="text-sm text-slate-400">Loaded matches</p>
               <p className="mt-4 text-4xl font-semibold text-white">{count}</p>
             </div>
-            <div className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_20px_80px_-40px_rgba(34,197,94,0.55)] backdrop-blur-xl">
               <p className="text-sm text-slate-400">Teams represented</p>
               <p className="mt-4 text-4xl font-semibold text-white">{Object.keys(teamCounts).length}</p>
             </div>
-            <div className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
-              <p className="text-sm text-slate-400">Recent winners</p>
-              <p className="mt-4 text-4xl font-semibold text-white">{topWinners.length}</p>
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_20px_80px_-40px_rgba(236,72,153,0.4)] backdrop-blur-xl">
+              <p className="text-sm text-slate-400">Top venue</p>
+              <p className="mt-4 text-4xl font-semibold text-white">{leadingVenue?.venue || "N/A"}</p>
+              {leadingVenue ? (
+                <p className="mt-2 text-sm text-slate-400">{leadingVenue.matches} matches</p>
+              ) : null}
             </div>
           </div>
 
-          <div className="mt-10 grid gap-6 xl:grid-cols-2">
-            <section className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
+          <div className="mt-10 grid gap-6 xl:grid-cols-3">
+            <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_-50px_rgba(14,165,233,0.45)] backdrop-blur-xl">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Top teams in sample</h2>
-                <span className="text-xs uppercase tracking-[0.28em] text-slate-500">Top 5</span>
+                <h2 className="text-lg font-semibold text-white">Top teams</h2>
+                <span className="text-xs uppercase tracking-[0.28em] text-slate-500">Sample</span>
               </div>
               <div className="mt-6 space-y-4">
                 {topTeams.map(([team, count], index) => (
-                  <div key={team} className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3 text-sm text-zinc-200">
+                  <div key={team} className="flex items-center justify-between rounded-3xl border border-white/5 bg-zinc-950/75 px-4 py-4 text-sm text-zinc-200 shadow-sm shadow-black/10">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-200">{index + 1}</span>
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-200">{index + 1}</span>
                       <span>{team}</span>
                     </div>
                     <span className="font-semibold text-white">{count}</span>
@@ -84,19 +95,37 @@ export default async function DashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
+            <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_-50px_rgba(34,197,94,0.45)] backdrop-blur-xl">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white">Top winners</h2>
                 <span className="text-xs uppercase tracking-[0.28em] text-slate-500">Most frequent</span>
               </div>
               <div className="mt-6 space-y-4">
                 {topWinners.map((item: WinnerItem, index: number) => (
-                  <div key={item.team} className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3 text-sm text-zinc-200">
+                  <div key={item.team} className="flex items-center justify-between rounded-3xl border border-white/5 bg-zinc-950/75 px-4 py-4 text-sm text-zinc-200 shadow-sm shadow-black/10">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-200">{index + 1}</span>
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-200">{index + 1}</span>
                       <span>{item.team}</span>
                     </div>
                     <span className="font-semibold text-white">{item.wins}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_24px_80px_-50px_rgba(236,72,153,0.35)] backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">Top venues</h2>
+                <span className="text-xs uppercase tracking-[0.28em] text-slate-500">By matches</span>
+              </div>
+              <div className="mt-6 space-y-4">
+                {topVenues.map((item: TopVenueItem, index: number) => (
+                  <div key={item.venue} className="flex items-center justify-between rounded-3xl border border-white/5 bg-zinc-950/75 px-4 py-4 text-sm text-zinc-200 shadow-sm shadow-black/10">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-pink-500/10 text-pink-200">{index + 1}</span>
+                      <span>{item.venue}</span>
+                    </div>
+                    <span className="font-semibold text-white">{item.matches}</span>
                   </div>
                 ))}
               </div>
