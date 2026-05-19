@@ -3,9 +3,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, extract, func, or_
+from sqlalchemy import desc, extract, func, or_, and_
 
 from app.core.database import get_db
+from app.models.delivery import Delivery
 from app.models.match import Match
 
 router = APIRouter(
@@ -64,7 +65,7 @@ def get_all_matches(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(None, description="General text search across teams, venue, city, and winner."),
-    team_1: Optional[str] = Query(None, description="Partial or full team 1 name filter."),
+    team: Optional[str] = Query(None, description="Merged team/search filter. Acts as team 1 lookup when team_2 is present, otherwise broad search."),
     team_2: Optional[str] = Query(None, description="Partial or full team 2 name filter."),
     winner: Optional[str] = Query(None, description="Partial or full winner name filter."),
     match_type: Optional[str] = Query(None, description="Partial match type filter, e.g. T20."),
@@ -83,7 +84,8 @@ def get_all_matches(
 
     - `page` and `per_page` control pagination.
     - `search` performs a broad text search across teams, venue, city, and winner.
-    - `team_1`, `team_2`, `winner`, `match_type`, `city`, and `venue` support partial matching.
+    - `team` and `team_2` support merged team filter behavior.
+    - `winner`, `match_type`, `city`, and `venue` support partial matching.
     - `venue_fuzzy` enables wildcard venue matching.
     - `year_from` / `year_to` filter by start year range.
     - `has_winner=true` returns only matches with a final winner.
@@ -91,15 +93,52 @@ def get_all_matches(
 
     query = db.query(Match)
 
-    if team_1:
-        team_1_term = team_1.strip()
-        team_1_conditions = [Match.team_1.ilike(f"%{team_1_term}%")]
-        alias_values = alias_values_for_term(team_1, TEAM_ALIAS_MAP)
-        if alias_values:
-            team_1_conditions.append(Match.team_1.in_(alias_values))
-        query = query.filter(or_(*team_1_conditions))
+    if team:
+        team_term = team.strip()
+        team_alias_values = alias_values_for_term(team, TEAM_ALIAS_MAP) + alias_values_for_term(team, VENUE_ALIAS_MAP)
 
-    if team_2:
+        if team_2:
+            team_2_term = team_2.strip()
+            team_2_alias_values = alias_values_for_term(team_2, TEAM_ALIAS_MAP)
+
+            team_1_match = [Match.team_1.ilike(f"%{team_term}%")]
+            if team_alias_values:
+                team_1_match.append(Match.team_1.in_(team_alias_values))
+
+            team_2_match = [Match.team_2.ilike(f"%{team_2_term}%")]
+            if team_2_alias_values:
+                team_2_match.append(Match.team_2.in_(team_2_alias_values))
+
+            reverse_team_1_match = [Match.team_1.ilike(f"%{team_2_term}%")]
+            if team_2_alias_values:
+                reverse_team_1_match.append(Match.team_1.in_(team_2_alias_values))
+
+            reverse_team_2_match = [Match.team_2.ilike(f"%{team_term}%")]
+            if team_alias_values:
+                reverse_team_2_match.append(Match.team_2.in_(team_alias_values))
+
+            query = query.filter(
+                or_(
+                    and_(or_(*team_1_match), or_(*team_2_match)),
+                    and_(or_(*reverse_team_1_match), or_(*reverse_team_2_match)),
+                )
+            )
+        else:
+            team_conditions = [
+                Match.team_1.ilike(f"%{team_term}%"),
+                Match.team_2.ilike(f"%{team_term}%"),
+                Match.venue.ilike(f"%{team_term}%"),
+                Match.city.ilike(f"%{team_term}%"),
+                Match.winner.ilike(f"%{team_term}%"),
+            ]
+            if team_alias_values:
+                team_conditions.append(Match.team_1.in_(team_alias_values))
+                team_conditions.append(Match.team_2.in_(team_alias_values))
+                team_conditions.append(Match.venue.in_(team_alias_values))
+                team_conditions.append(Match.winner.in_(team_alias_values))
+            query = query.filter(or_(*team_conditions))
+
+    elif team_2:
         team_2_term = team_2.strip()
         team_2_conditions = [Match.team_2.ilike(f"%{team_2_term}%")]
         alias_values = alias_values_for_term(team_2, TEAM_ALIAS_MAP)
@@ -107,25 +146,22 @@ def get_all_matches(
             team_2_conditions.append(Match.team_2.in_(alias_values))
         query = query.filter(or_(*team_2_conditions))
 
-    if search:
+    if search and not team:
         search_term = f"%{search.strip()}%"
-        if team_2:
-            query = query.filter(Match.team_1.ilike(search_term))
-        else:
-            search_conditions = [
-                Match.team_1.ilike(search_term),
-                Match.team_2.ilike(search_term),
-                Match.venue.ilike(search_term),
-                Match.city.ilike(search_term),
-                Match.winner.ilike(search_term),
-            ]
-            alias_values = alias_values_for_term(search, TEAM_ALIAS_MAP) + alias_values_for_term(search, VENUE_ALIAS_MAP)
-            if alias_values:
-                search_conditions.append(Match.team_1.in_(alias_values))
-                search_conditions.append(Match.team_2.in_(alias_values))
-                search_conditions.append(Match.venue.in_(alias_values))
-                search_conditions.append(Match.winner.in_(alias_values))
-            query = query.filter(or_(*search_conditions))
+        search_conditions = [
+            Match.team_1.ilike(search_term),
+            Match.team_2.ilike(search_term),
+            Match.venue.ilike(search_term),
+            Match.city.ilike(search_term),
+            Match.winner.ilike(search_term),
+        ]
+        alias_values = alias_values_for_term(search, TEAM_ALIAS_MAP) + alias_values_for_term(search, VENUE_ALIAS_MAP)
+        if alias_values:
+            search_conditions.append(Match.team_1.in_(alias_values))
+            search_conditions.append(Match.team_2.in_(alias_values))
+            search_conditions.append(Match.venue.in_(alias_values))
+            search_conditions.append(Match.winner.in_(alias_values))
+        query = query.filter(or_(*search_conditions))
 
     if winner:
         winner_term = winner.strip()
@@ -152,12 +188,12 @@ def get_all_matches(
 
     if year:
         query = query.filter(extract("year", Match.start_date) == year)
+    else:
+        if year_from:
+            query = query.filter(extract("year", Match.start_date) >= year_from)
 
-    if year_from:
-        query = query.filter(extract("year", Match.start_date) >= year_from)
-
-    if year_to:
-        query = query.filter(extract("year", Match.start_date) <= year_to)
+        if year_to:
+            query = query.filter(extract("year", Match.start_date) <= year_to)
 
     if has_winner is True:
         query = query.filter(Match.winner.isnot(None), Match.winner != "")

@@ -19,8 +19,7 @@ export async function checkBackendHealth() {
 }
 
 type MatchFilters = {
-  search?: string;
-  team_1?: string;
+  team?: string;
   team_2?: string;
   winner?: string;
   match_type?: string;
@@ -43,8 +42,7 @@ export async function getMatches(page = 1, per_page = 12, filters: MatchFilters 
       per_page: String(per_page),
     });
 
-    if (filters.search) params.set("search", filters.search);
-    if (filters.team_1) params.set("team_1", filters.team_1);
+    if (filters.team) params.set("team", filters.team);
     if (filters.team_2) params.set("team_2", filters.team_2);
     if (filters.winner) params.set("winner", filters.winner);
     if (filters.match_type) params.set("match_type", filters.match_type);

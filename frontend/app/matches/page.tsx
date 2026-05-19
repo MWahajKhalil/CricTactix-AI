@@ -44,21 +44,15 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
   const page = Math.max(1, Number(resolvedSearchParams?.page || "1"));
   const perPage = 12;
   const filters = {
-    search: Array.isArray(resolvedSearchParams?.search)
-      ? resolvedSearchParams.search[0]
-      : resolvedSearchParams?.search,
-    team_1: Array.isArray(resolvedSearchParams?.team_1)
-      ? resolvedSearchParams.team_1[0]
-      : resolvedSearchParams?.team_1,
+    team: Array.isArray(resolvedSearchParams?.team)
+      ? resolvedSearchParams.team[0]
+      : resolvedSearchParams?.team,
     team_2: Array.isArray(resolvedSearchParams?.team_2)
       ? resolvedSearchParams.team_2[0]
       : resolvedSearchParams?.team_2,
     winner: Array.isArray(resolvedSearchParams?.winner)
       ? resolvedSearchParams.winner[0]
       : resolvedSearchParams?.winner,
-    match_type: Array.isArray(resolvedSearchParams?.match_type)
-      ? resolvedSearchParams.match_type[0]
-      : resolvedSearchParams?.match_type,
     city: Array.isArray(resolvedSearchParams?.city)
       ? resolvedSearchParams.city[0]
       : resolvedSearchParams?.city,
@@ -86,16 +80,17 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
   const buildMatchPageUrl = (pageNumber: number) => {
     const params = new URLSearchParams();
     params.set("page", String(pageNumber));
-    if (filters.search) params.set("search", filters.search);
-    if (filters.team_1) params.set("team_1", filters.team_1);
+    if (filters.team) params.set("team", filters.team);
     if (filters.team_2) params.set("team_2", filters.team_2);
     if (filters.winner) params.set("winner", filters.winner);
-    if (filters.match_type) params.set("match_type", filters.match_type);
     if (filters.city) params.set("city", filters.city);
     if (filters.venue) params.set("venue", filters.venue);
-    if (filters.year) params.set("year", filters.year);
-    if (filters.year_from) params.set("year_from", filters.year_from);
-    if (filters.year_to) params.set("year_to", filters.year_to);
+    if (filters.year) {
+      params.set("year", filters.year);
+    } else {
+      if (filters.year_from) params.set("year_from", filters.year_from);
+      if (filters.year_to) params.set("year_to", filters.year_to);
+    }
     return `/matches?${params.toString()}`;
   };
 
@@ -108,7 +103,7 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
               <p className="text-sm uppercase tracking-[0.28em] text-sky-300">Match archive</p>
               <h1 className="mt-3 text-4xl font-semibold text-white">Browse PSL matches</h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
-                Refine results with team, winner, venue, year, or match-type filters and view match details in one place.
+                Refine results with team, winner, venue, and year filters, then view match details in one place.
               </p>
             </div>
             <Link href="/dashboard" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-slate-100">
@@ -134,30 +129,21 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
 
               <form id="match-filters" action="/matches" method="get" className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="sm:col-span-2">
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Search</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Team / search</label>
                   <input
-                    name="search"
-                    defaultValue={filters.search ?? ""}
-                    placeholder="Search team, venue, city, winner, or year"
+                    name="team"
+                    list="team-aliases"
+                    defaultValue={filters.team ?? ""}
+                    placeholder="Search teams, venue, city, winner, or opponent"
                     className="w-full rounded-[1.5rem] border border-zinc-800/80 bg-zinc-950/90 px-5 py-4 text-sm text-white outline-none transition focus:border-sky-400/80 focus:ring-4 focus:ring-sky-400/10"
                   />
                   <p className="mt-2 text-xs text-zinc-500">
-                    Try short names like Lahore, Karachi, Gaddafi, National, Rawalpindi.
+                    If Team 2 is set, this finds Team 1. Otherwise it searches broadly across matches.
                   </p>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Team 1</label>
-                  <input
-                    name="team_1"
-                    list="team-aliases"
-                    defaultValue={filters.team_1 ?? ""}
-                    placeholder="First team name or alias"
-                    className="w-full rounded-[1.5rem] border border-zinc-800/80 bg-zinc-950/90 px-5 py-4 text-sm text-white outline-none transition focus:border-sky-400/80 focus:ring-4 focus:ring-sky-400/10"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Team 2</label>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Opponent</label>
                   <input
                     name="team_2"
                     list="team-aliases"
@@ -190,15 +176,6 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
                     name="winner"
                     defaultValue={filters.winner ?? ""}
                     placeholder="Winner name"
-                    className="w-full rounded-[1.5rem] border border-zinc-800/80 bg-zinc-950/90 px-5 py-4 text-sm text-white outline-none transition focus:border-sky-400/80 focus:ring-4 focus:ring-sky-400/10"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Match type</label>
-                  <input
-                    name="match_type"
-                    defaultValue={filters.match_type ?? ""}
-                    placeholder="T20, PSL"
                     className="w-full rounded-[1.5rem] border border-zinc-800/80 bg-zinc-950/90 px-5 py-4 text-sm text-white outline-none transition focus:border-sky-400/80 focus:ring-4 focus:ring-sky-400/10"
                   />
                 </div>
