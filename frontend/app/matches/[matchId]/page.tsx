@@ -3,6 +3,48 @@ import { getMatchById } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+type BattingStat = {
+  player: string;
+  runs: number;
+  balls: number;
+  strike_rate: number;
+};
+
+type BowlingStat = {
+  player: string;
+  overs: string;
+  runs_conceded: number;
+  wickets: number;
+  economy: number;
+};
+
+type Innings = {
+  innings_number: number;
+  batting_team: string;
+  bowling_team: string;
+  batting: BattingStat[];
+  bowling: BowlingStat[];
+  total_runs: number;
+  wickets: number;
+  extras: number;
+  overs: string;
+};
+
+type MatchDetail = {
+  id: number;
+  cricsheet_id: string;
+  date: string;
+  team_1: string;
+  team_2: string;
+  winner: string;
+  match_type: string;
+  venue: string;
+  city: string;
+  scorecard?: {
+    innings: Innings[];
+  };
+};
+
 type MatchDetailPageProps = {
   params: Promise<{
     matchId: string;
@@ -11,7 +53,7 @@ type MatchDetailPageProps = {
 
 export default async function MatchDetailPage({ params }: MatchDetailPageProps) {
   const resolvedParams = await params;
-  let match = null;
+  let match: MatchDetail | null = null;
 
   try {
     match = await getMatchById(resolvedParams.matchId);
@@ -95,6 +137,95 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
             </div>
           </div>
         </div>
+
+        {match.scorecard ? (
+          <div className="mt-10 space-y-8">
+            {match.scorecard.innings.map((innings) => (
+              <div key={innings.innings_number} className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-sky-300">Innings {innings.innings_number}</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">
+                      {innings.batting_team} batting vs {innings.bowling_team}
+                    </h2>
+                  </div>
+                  <div className="rounded-3xl bg-slate-950/80 px-4 py-3 text-sm text-slate-300">
+                    <p className="font-semibold text-white">{innings.total_runs}/{innings.wickets}</p>
+                    <p className="mt-1">Overs: {innings.overs}</p>
+                    <p className="mt-1 text-slate-400">Extras: {innings.extras}</p>
+                  </div>
+                </div>
+
+                <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-white">Batting card</h3>
+                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">Runs / Balls / SR</span>
+                    </div>
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="min-w-full divide-y divide-zinc-800 text-sm text-left text-zinc-200">
+                        <thead>
+                          <tr>
+                            <th className="px-4 py-3">Batter</th>
+                            <th className="px-4 py-3">R</th>
+                            <th className="px-4 py-3">B</th>
+                            <th className="px-4 py-3">SR</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800">
+                          {innings.batting.map((bat) => (
+                            <tr key={`${innings.innings_number}-${bat.player}`} className="hover:bg-zinc-950/80">
+                              <td className="px-4 py-3">{bat.player}</td>
+                              <td className="px-4 py-3 font-semibold text-white">{bat.runs}</td>
+                              <td className="px-4 py-3">{bat.balls}</td>
+                              <td className="px-4 py-3">{bat.strike_rate.toFixed(1)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-white">Opponent bowling</h3>
+                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">O / R / W / Econ</span>
+                    </div>
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="min-w-full divide-y divide-zinc-800 text-sm text-left text-zinc-200">
+                        <thead>
+                          <tr>
+                            <th className="px-4 py-3">Bowler</th>
+                            <th className="px-4 py-3">O</th>
+                            <th className="px-4 py-3">R</th>
+                            <th className="px-4 py-3">W</th>
+                            <th className="px-4 py-3">Econ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800">
+                          {innings.bowling.map((bowl) => (
+                            <tr key={`${innings.innings_number}-${bowl.player}`} className="hover:bg-zinc-950/80">
+                              <td className="px-4 py-3">{bowl.player}</td>
+                              <td className="px-4 py-3">{bowl.overs}</td>
+                              <td className="px-4 py-3 font-semibold text-white">{bowl.runs_conceded}</td>
+                              <td className="px-4 py-3">{bowl.wickets}</td>
+                              <td className="px-4 py-3">{bowl.economy.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-10 rounded-[2rem] border border-dashed border-white/10 bg-zinc-900/80 p-10 text-center text-zinc-300">
+            <p className="text-lg font-semibold text-white">Scorecard information is not available</p>
+            <p className="mt-3 text-sm text-zinc-400">This match does not have ball-by-ball scorecard data in the current dataset.</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -23,6 +23,7 @@ type MatchItem = {
   venue: string;
   city: string;
   winner: string;
+  has_scorecard?: boolean;
 };
 
 type WinnerItem = {
@@ -303,8 +304,8 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
                     >
                       View details
                     </Link>
-                    <span className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-                      Score data not available
+                    <span className={`inline-flex items-center justify-center rounded-full border px-4 py-3 text-sm font-semibold ${match.has_scorecard ? "border-emerald-500 bg-emerald-500/10 text-emerald-300" : "border-slate-700 bg-slate-900/80 text-slate-300"}`}>
+                      {match.has_scorecard ? "Scorecard available" : "Score data not available"}
                     </span>
                   </div>
                 </div>

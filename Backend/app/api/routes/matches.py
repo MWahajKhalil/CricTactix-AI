@@ -212,6 +212,15 @@ def get_all_matches(
         .all()
     )
 
+    match_ids = [m.id for m in matches]
+    delivery_counts = {
+        row[0]: row[1]
+        for row in db.query(Delivery.match_id, func.count().label("delivery_count"))
+        .filter(Delivery.match_id.in_(match_ids))
+        .group_by(Delivery.match_id)
+        .all()
+    }
+
     return {
         "count": total,
         "page": page,
@@ -227,6 +236,7 @@ def get_all_matches(
                 "match_type": m.match_type,
                 "venue": m.venue,
                 "city": m.city,
+                "has_scorecard": delivery_counts.get(m.id, 0) > 0,
             }
             for m in matches
         ],
@@ -277,7 +287,8 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    return {
+    # Basic match info
+    match_info = {
         "id": match.id,
         "cricsheet_id": match.cricsheet_match_id,
         "date": match.start_date,
@@ -288,3 +299,88 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
         "venue": match.venue,
         "city": match.city,
     }
+
+    # Aggregate deliveries by innings to build separate scorecards
+    deliveries = db.query(Delivery).filter(Delivery.match_id == match.id).order_by(
+        Delivery.innings_number,
+        Delivery.over_number,
+        Delivery.ball_number,
+    ).all()
+
+    innings_map: dict[int, dict] = {}
+    for d in deliveries:
+        innings = innings_map.setdefault(d.innings_number, {
+            "innings_number": d.innings_number,
+            "batting_team": d.batting_team,
+            "bowling_team": d.bowling_team,
+            "batting": {},
+            "bowling": {},
+            "runs": 0,
+            "balls": 0,
+            "wickets": 0,
+            "extras": 0,
+        })
+
+        innings["runs"] += (d.runs_total or 0)
+        innings["extras"] += (d.runs_extras or 0)
+        if d.player_out:
+            innings["wickets"] += 1
+
+        batter = d.batter or "Unknown"
+        batting = innings["batting"].setdefault(batter, {"runs": 0, "balls": 0})
+        batting["runs"] += (d.runs_batter or 0)
+        is_wide = (d.runs_extras or 0) > 0 and (d.runs_batter or 0) == 0 and d.wicket_type is None and (d.runs_total or 0) > 0
+        if not is_wide:
+            batting["balls"] += 1
+            innings["balls"] += 1
+
+        bowler = d.bowler or "Unknown"
+        bowling = innings["bowling"].setdefault(bowler, {"runs_conceded": 0, "balls": 0, "wickets": 0})
+        bowling["runs_conceded"] += (d.runs_total or 0)
+        if not is_wide:
+            bowling["balls"] += 1
+        if d.player_out:
+            bowling["wickets"] += 1
+
+    innings_list = []
+    for innings_number in sorted(innings_map):
+        innings = innings_map[innings_number]
+        batting_list = []
+        for player, stats in sorted(innings["batting"].items(), key=lambda x: (-x[1]["runs"], x[0])):
+            balls = stats["balls"]
+            strike_rate = (stats["runs"] / balls * 100) if balls > 0 else 0.0
+            batting_list.append({
+                "player": player,
+                "runs": stats["runs"],
+                "balls": balls,
+                "strike_rate": round(strike_rate, 1),
+            })
+
+        bowling_list = []
+        for player, stats in sorted(innings["bowling"].items(), key=lambda x: (-x[1]["wickets"], x[0])):
+            balls = stats["balls"]
+            overs = f"{balls // 6}.{balls % 6}" if balls > 0 else "0.0"
+            economy = (stats["runs_conceded"] / (balls / 6)) if balls > 0 else 0.0
+            bowling_list.append({
+                "player": player,
+                "overs": overs,
+                "runs_conceded": stats["runs_conceded"],
+                "wickets": stats["wickets"],
+                "economy": round(economy, 2),
+            })
+
+        innings_list.append({
+            "innings_number": innings["innings_number"],
+            "batting_team": innings["batting_team"],
+            "bowling_team": innings["bowling_team"],
+            "batting": batting_list,
+            "bowling": bowling_list,
+            "total_runs": innings["runs"],
+            "wickets": innings["wickets"],
+            "extras": innings["extras"],
+            "overs": f"{innings['balls'] // 6}.{innings['balls'] % 6}" if innings["balls"] > 0 else "0.0",
+        })
+
+    match_info["scorecard"] = {"innings": innings_list}
+
+    return match_info
