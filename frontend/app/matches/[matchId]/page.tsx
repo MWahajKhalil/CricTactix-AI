@@ -141,26 +141,37 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
         {match.scorecard ? (
           <div className="mt-10 space-y-8">
             {match.scorecard.innings.map((innings) => (
-              <div key={innings.innings_number} className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <section key={innings.innings_number} className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-sm uppercase tracking-[0.28em] text-sky-300">Innings {innings.innings_number}</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">
-                      {innings.batting_team} batting vs {innings.bowling_team}
-                    </h2>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">{innings.batting_team} batting</h2>
+                    <p className="mt-2 text-sm text-zinc-400">vs {innings.bowling_team}</p>
                   </div>
-                  <div className="rounded-3xl bg-slate-950/80 px-4 py-3 text-sm text-slate-300">
-                    <p className="font-semibold text-white">{innings.total_runs}/{innings.wickets}</p>
-                    <p className="mt-1">Overs: {innings.overs}</p>
-                    <p className="mt-1 text-slate-400">Extras: {innings.extras}</p>
+                  <div className="grid w-full gap-2 rounded-3xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-zinc-300 sm:w-auto">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Score</span>
+                      <span className="font-semibold text-white">{innings.total_runs}/{innings.wickets}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Overs</span>
+                      <span className="font-semibold text-white">{innings.overs}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Extras</span>
+                      <span className="font-semibold text-white">{innings.extras}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-8 grid gap-6 lg:grid-cols-2">
                   <div className="rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-5">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold text-white">Batting card</h3>
-                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">Runs / Balls / SR</span>
+                      <div>
+                        <h3 className="text-base font-semibold text-white">Batting card</h3>
+                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{innings.batting_team}</p>
+                      </div>
+                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">R / B / SR</span>
                     </div>
                     <div className="mt-4 overflow-x-auto">
                       <table className="min-w-full divide-y divide-zinc-800 text-sm text-left text-zinc-200">
@@ -188,7 +199,10 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
 
                   <div className="rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-5">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold text-white">Opponent bowling</h3>
+                      <div>
+                        <h3 className="text-base font-semibold text-white">Opponent bowling</h3>
+                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{innings.bowling_team}</p>
+                      </div>
                       <span className="text-xs uppercase tracking-[0.24em] text-slate-400">O / R / W / Econ</span>
                     </div>
                     <div className="mt-4 overflow-x-auto">
@@ -217,7 +231,7 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             ))}
           </div>
         ) : (
