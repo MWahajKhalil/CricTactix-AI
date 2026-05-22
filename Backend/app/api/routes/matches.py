@@ -1,5 +1,5 @@
 
-from typing import Optional
+from typing import Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -58,6 +58,246 @@ def alias_values_for_term(value: Optional[str], alias_map: dict[str, list[str]])
     return alias_map.get(normalized, [])
 
 
+# ============================================================================
+# FILTER HELPERS
+# ============================================================================
+
+def build_team_conditions(term: str, alias_map_values: list[str]) -> list:
+    """Build OR conditions for a single team search term."""
+    conditions = [Match.team_1.ilike(f"%{term}%"), Match.team_2.ilike(f"%{term}%")]
+    if alias_map_values:
+        conditions.append(Match.team_1.in_(alias_map_values))
+        conditions.append(Match.team_2.in_(alias_map_values))
+    return conditions
+
+
+def apply_team_filter(query, team: Optional[str], team_2: Optional[str]):
+    """Apply team/team_2 filtering to query. Handles bidirectional team matching."""
+    if not team:
+        return query
+    
+    team_term = team.strip()
+    team_alias_values = alias_values_for_term(team, TEAM_ALIAS_MAP)
+    
+    if team_2:
+        # Bidirectional: (team_1=team AND team_2=team_2) OR (team_1=team_2 AND team_2=team)
+        team_2_term = team_2.strip()
+        team_2_alias_values = alias_values_for_term(team_2, TEAM_ALIAS_MAP)
+        
+        team_1_match = build_team_conditions(team_term, team_alias_values)
+        team_2_match = build_team_conditions(team_2_term, team_2_alias_values)
+        reverse_team_1_match = build_team_conditions(team_2_term, team_2_alias_values)
+        reverse_team_2_match = build_team_conditions(team_term, team_alias_values)
+        
+        return query.filter(
+            or_(
+                and_(or_(*team_1_match), or_(*team_2_match)),
+                and_(or_(*reverse_team_1_match), or_(*reverse_team_2_match)),
+            )
+        )
+    else:
+        # Broad search across all fields
+        broad_conditions = [
+            Match.team_1.ilike(f"%{team_term}%"),
+            Match.team_2.ilike(f"%{team_term}%"),
+            Match.venue.ilike(f"%{team_term}%"),
+            Match.city.ilike(f"%{team_term}%"),
+            Match.winner.ilike(f"%{team_term}%"),
+        ]
+        if team_alias_values:
+            broad_conditions.extend([
+                Match.team_1.in_(team_alias_values),
+                Match.team_2.in_(team_alias_values),
+                Match.venue.in_(team_alias_values),
+                Match.winner.in_(team_alias_values),
+            ])
+        return query.filter(or_(*broad_conditions))
+
+
+def apply_team_2_filter(query, team_2: Optional[str]):
+    """Apply team_2 specific filtering."""
+    if not team_2:
+        return query
+    
+    team_2_term = team_2.strip()
+    conditions = [Match.team_2.ilike(f"%{team_2_term}%")]
+    alias_values = alias_values_for_term(team_2, TEAM_ALIAS_MAP)
+    if alias_values:
+        conditions.append(Match.team_2.in_(alias_values))
+    return query.filter(or_(*conditions))
+
+
+def apply_search_filter(query, search: Optional[str]):
+    """Apply general text search filter."""
+    if not search:
+        return query
+    
+    search_term = f"%{search.strip()}%"
+    conditions = [
+        Match.team_1.ilike(search_term),
+        Match.team_2.ilike(search_term),
+        Match.venue.ilike(search_term),
+        Match.city.ilike(search_term),
+        Match.winner.ilike(search_term),
+    ]
+    alias_values = alias_values_for_term(search, TEAM_ALIAS_MAP) + alias_values_for_term(search, VENUE_ALIAS_MAP)
+    if alias_values:
+        conditions.extend([
+            Match.team_1.in_(alias_values),
+            Match.team_2.in_(alias_values),
+            Match.venue.in_(alias_values),
+            Match.winner.in_(alias_values),
+        ])
+    return query.filter(or_(*conditions))
+
+
+def apply_winner_filter(query, winner: Optional[str]):
+    """Apply winner filtering."""
+    if not winner:
+        return query
+    
+    winner_term = winner.strip()
+    conditions = [Match.winner.ilike(f"%{winner_term}%")]
+    alias_values = alias_values_for_term(winner, TEAM_ALIAS_MAP)
+    if alias_values:
+        conditions.append(Match.winner.in_(alias_values))
+    return query.filter(or_(*conditions))
+
+
+def apply_venue_filter(query, venue: Optional[str], venue_fuzzy: bool = False):
+    """Apply venue filtering with optional fuzzy/alias matching."""
+    if not venue:
+        return query
+    
+    venue_term = venue.strip()
+    conditions = [Match.venue.ilike(f"%{venue_term}%")]
+    if venue_fuzzy:
+        alias_values = alias_values_for_term(venue, VENUE_ALIAS_MAP)
+        if alias_values:
+            conditions.append(Match.venue.in_(alias_values))
+    return query.filter(or_(*conditions))
+
+
+def apply_year_filter(query, year: Optional[int], year_from: Optional[int], year_to: Optional[int]):
+    """Apply year filtering."""
+    if year:
+        return query.filter(extract("year", Match.start_date) == year)
+    
+    if year_from:
+        query = query.filter(extract("year", Match.start_date) >= year_from)
+    
+    if year_to:
+        query = query.filter(extract("year", Match.start_date) <= year_to)
+    
+    return query
+
+
+# ============================================================================
+# SCORECARD HELPERS
+# ============================================================================
+
+def calculate_batting_stats(player: str, stats: dict) -> dict:
+    """Calculate batting statistics for a player."""
+    balls = stats["balls"]
+    strike_rate = (stats["runs"] / balls * 100) if balls > 0 else 0.0
+    return {
+        "player": player,
+        "runs": stats["runs"],
+        "balls": balls,
+        "strike_rate": round(strike_rate, 1),
+    }
+
+
+def calculate_bowling_stats(player: str, stats: dict) -> dict:
+    """Calculate bowling statistics for a player."""
+    balls = stats["balls"]
+    overs = f"{balls // 6}.{balls % 6}" if balls > 0 else "0.0"
+    economy = (stats["runs_conceded"] / (balls / 6)) if balls > 0 else 0.0
+    return {
+        "player": player,
+        "overs": overs,
+        "runs_conceded": stats["runs_conceded"],
+        "wickets": stats["wickets"],
+        "economy": round(economy, 2),
+    }
+
+
+def build_scorecard_from_deliveries(deliveries: list[Delivery]) -> list[dict]:
+    """Aggregate deliveries into innings scorecards."""
+    innings_map: dict[int, dict] = {}
+    
+    # Aggregate deliveries into innings
+    for d in deliveries:
+        innings = innings_map.setdefault(cast(int, d.innings_number), {
+            "innings_number": d.innings_number,
+            "batting_team": d.batting_team,
+            "bowling_team": d.bowling_team,
+            "batting": {},
+            "bowling": {},
+            "runs": 0,
+            "balls": 0,
+            "wickets": 0,
+            "extras": 0,
+        })
+        
+        innings["runs"] += (d.runs_total or 0)
+        innings["extras"] += (d.runs_extras or 0)
+        if d.player_out:  # type: ignore
+            innings["wickets"] += 1
+        
+        # Track batting stats
+        batter = d.batter or "Unknown"
+        batting = innings["batting"].setdefault(batter, {"runs": 0, "balls": 0})
+        batting["runs"] += (d.runs_batter or 0)
+        
+        is_wide = (d.runs_extras or 0) > 0 and (d.runs_batter or 0) == 0 and d.wicket_type is None and (d.runs_total or 0) > 0
+        if not is_wide:  # type: ignore
+            batting["balls"] += 1
+            innings["balls"] += 1
+        
+        # Track bowling stats
+        bowler = d.bowler or "Unknown"
+        bowling = innings["bowling"].setdefault(bowler, {"runs_conceded": 0, "balls": 0, "wickets": 0})
+        bowling["runs_conceded"] += (d.runs_total or 0)
+        if not is_wide:  # type: ignore
+            bowling["balls"] += 1
+        if d.player_out:  # type: ignore
+            bowling["wickets"] += 1
+    
+    # Format innings data
+    innings_list = []
+    for innings_number in sorted(innings_map):
+        innings = innings_map[innings_number]
+        
+        # Format batting
+        batting_list = [
+            calculate_batting_stats(player, stats)
+            for player, stats in sorted(innings["batting"].items(), key=lambda x: (-x[1]["runs"], x[0]))
+        ]
+        
+        # Format bowling
+        bowling_list = [
+            calculate_bowling_stats(player, stats)
+            for player, stats in sorted(innings["bowling"].items(), key=lambda x: (-x[1]["wickets"], x[0]))
+        ]
+        
+        overs = f"{innings['balls'] // 6}.{innings['balls'] % 6}" if innings["balls"] > 0 else "0.0"
+        
+        innings_list.append({
+            "innings_number": innings["innings_number"],
+            "batting_team": innings["batting_team"],
+            "bowling_team": innings["bowling_team"],
+            "batting": batting_list,
+            "bowling": bowling_list,
+            "total_runs": innings["runs"],
+            "wickets": innings["wickets"],
+            "extras": innings["extras"],
+            "overs": overs,
+        })
+    
+    return innings_list
+
+
 # This endpoint is used by the frontend to fetch a paginated list of matches with optional filters. It supports filtering by team, match type, year, venue (with optional fuzzy matching), and winner. The results are returned in a structured format that includes pagination metadata.
 
 @router.get("/")
@@ -92,109 +332,23 @@ def get_all_matches(
     """
 
     query = db.query(Match)
-
-    if team:
-        team_term = team.strip()
-        team_alias_values = alias_values_for_term(team, TEAM_ALIAS_MAP) + alias_values_for_term(team, VENUE_ALIAS_MAP)
-
-        if team_2:
-            team_2_term = team_2.strip()
-            team_2_alias_values = alias_values_for_term(team_2, TEAM_ALIAS_MAP)
-
-            team_1_match = [Match.team_1.ilike(f"%{team_term}%")]
-            if team_alias_values:
-                team_1_match.append(Match.team_1.in_(team_alias_values))
-
-            team_2_match = [Match.team_2.ilike(f"%{team_2_term}%")]
-            if team_2_alias_values:
-                team_2_match.append(Match.team_2.in_(team_2_alias_values))
-
-            reverse_team_1_match = [Match.team_1.ilike(f"%{team_2_term}%")]
-            if team_2_alias_values:
-                reverse_team_1_match.append(Match.team_1.in_(team_2_alias_values))
-
-            reverse_team_2_match = [Match.team_2.ilike(f"%{team_term}%")]
-            if team_alias_values:
-                reverse_team_2_match.append(Match.team_2.in_(team_alias_values))
-
-            query = query.filter(
-                or_(
-                    and_(or_(*team_1_match), or_(*team_2_match)),
-                    and_(or_(*reverse_team_1_match), or_(*reverse_team_2_match)),
-                )
-            )
-        else:
-            team_conditions = [
-                Match.team_1.ilike(f"%{team_term}%"),
-                Match.team_2.ilike(f"%{team_term}%"),
-                Match.venue.ilike(f"%{team_term}%"),
-                Match.city.ilike(f"%{team_term}%"),
-                Match.winner.ilike(f"%{team_term}%"),
-            ]
-            if team_alias_values:
-                team_conditions.append(Match.team_1.in_(team_alias_values))
-                team_conditions.append(Match.team_2.in_(team_alias_values))
-                team_conditions.append(Match.venue.in_(team_alias_values))
-                team_conditions.append(Match.winner.in_(team_alias_values))
-            query = query.filter(or_(*team_conditions))
-
-    elif team_2:
-        team_2_term = team_2.strip()
-        team_2_conditions = [Match.team_2.ilike(f"%{team_2_term}%")]
-        alias_values = alias_values_for_term(team_2, TEAM_ALIAS_MAP)
-        if alias_values:
-            team_2_conditions.append(Match.team_2.in_(alias_values))
-        query = query.filter(or_(*team_2_conditions))
-
-    if search and not team:
-        search_term = f"%{search.strip()}%"
-        search_conditions = [
-            Match.team_1.ilike(search_term),
-            Match.team_2.ilike(search_term),
-            Match.venue.ilike(search_term),
-            Match.city.ilike(search_term),
-            Match.winner.ilike(search_term),
-        ]
-        alias_values = alias_values_for_term(search, TEAM_ALIAS_MAP) + alias_values_for_term(search, VENUE_ALIAS_MAP)
-        if alias_values:
-            search_conditions.append(Match.team_1.in_(alias_values))
-            search_conditions.append(Match.team_2.in_(alias_values))
-            search_conditions.append(Match.venue.in_(alias_values))
-            search_conditions.append(Match.winner.in_(alias_values))
-        query = query.filter(or_(*search_conditions))
-
-    if winner:
-        winner_term = winner.strip()
-        winner_conditions = [Match.winner.ilike(f"%{winner_term}%")]
-        alias_values = alias_values_for_term(winner, TEAM_ALIAS_MAP)
-        if alias_values:
-            winner_conditions.append(Match.winner.in_(alias_values))
-        query = query.filter(or_(*winner_conditions))
-
+    
+    # Apply filters
+    query = apply_team_filter(query, team, team_2)
+    if not team:  # Only apply standalone team_2 if team not provided
+        query = apply_team_2_filter(query, team_2)
+    query = apply_search_filter(query, search if not team else None)
+    query = apply_winner_filter(query, winner)
+    
     if match_type:
         query = query.filter(Match.match_type.ilike(f"%{match_type}%"))
-
+    
     if city:
         query = query.filter(Match.city.ilike(f"%{city}%"))
-
-    if venue:
-        venue_term = venue.strip()
-        venue_conditions = [Match.venue.ilike(f"%{venue_term}%")]
-        if venue_fuzzy:
-            alias_values = alias_values_for_term(venue, VENUE_ALIAS_MAP)
-            if alias_values:
-                venue_conditions.append(Match.venue.in_(alias_values))
-        query = query.filter(or_(*venue_conditions))
-
-    if year:
-        query = query.filter(extract("year", Match.start_date) == year)
-    else:
-        if year_from:
-            query = query.filter(extract("year", Match.start_date) >= year_from)
-
-        if year_to:
-            query = query.filter(extract("year", Match.start_date) <= year_to)
-
+    
+    query = apply_venue_filter(query, venue, venue_fuzzy)
+    query = apply_year_filter(query, year, year_from, year_to)
+    
     if has_winner is True:
         query = query.filter(Match.winner.isnot(None), Match.winner != "")
     elif has_winner is False:
@@ -300,87 +454,13 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
         "city": match.city,
     }
 
-    # Aggregate deliveries by innings to build separate scorecards
+    # Build scorecard from deliveries
     deliveries = db.query(Delivery).filter(Delivery.match_id == match.id).order_by(
         Delivery.innings_number,
         Delivery.over_number,
         Delivery.ball_number,
     ).all()
 
-    innings_map: dict[int, dict] = {}
-    for d in deliveries:
-        innings = innings_map.setdefault(d.innings_number, {
-            "innings_number": d.innings_number,
-            "batting_team": d.batting_team,
-            "bowling_team": d.bowling_team,
-            "batting": {},
-            "bowling": {},
-            "runs": 0,
-            "balls": 0,
-            "wickets": 0,
-            "extras": 0,
-        })
-
-        innings["runs"] += (d.runs_total or 0)
-        innings["extras"] += (d.runs_extras or 0)
-        if d.player_out:
-            innings["wickets"] += 1
-
-        batter = d.batter or "Unknown"
-        batting = innings["batting"].setdefault(batter, {"runs": 0, "balls": 0})
-        batting["runs"] += (d.runs_batter or 0)
-        is_wide = (d.runs_extras or 0) > 0 and (d.runs_batter or 0) == 0 and d.wicket_type is None and (d.runs_total or 0) > 0
-        if not is_wide:
-            batting["balls"] += 1
-            innings["balls"] += 1
-
-        bowler = d.bowler or "Unknown"
-        bowling = innings["bowling"].setdefault(bowler, {"runs_conceded": 0, "balls": 0, "wickets": 0})
-        bowling["runs_conceded"] += (d.runs_total or 0)
-        if not is_wide:
-            bowling["balls"] += 1
-        if d.player_out:
-            bowling["wickets"] += 1
-
-    innings_list = []
-    for innings_number in sorted(innings_map):
-        innings = innings_map[innings_number]
-        batting_list = []
-        for player, stats in sorted(innings["batting"].items(), key=lambda x: (-x[1]["runs"], x[0])):
-            balls = stats["balls"]
-            strike_rate = (stats["runs"] / balls * 100) if balls > 0 else 0.0
-            batting_list.append({
-                "player": player,
-                "runs": stats["runs"],
-                "balls": balls,
-                "strike_rate": round(strike_rate, 1),
-            })
-
-        bowling_list = []
-        for player, stats in sorted(innings["bowling"].items(), key=lambda x: (-x[1]["wickets"], x[0])):
-            balls = stats["balls"]
-            overs = f"{balls // 6}.{balls % 6}" if balls > 0 else "0.0"
-            economy = (stats["runs_conceded"] / (balls / 6)) if balls > 0 else 0.0
-            bowling_list.append({
-                "player": player,
-                "overs": overs,
-                "runs_conceded": stats["runs_conceded"],
-                "wickets": stats["wickets"],
-                "economy": round(economy, 2),
-            })
-
-        innings_list.append({
-            "innings_number": innings["innings_number"],
-            "batting_team": innings["batting_team"],
-            "bowling_team": innings["bowling_team"],
-            "batting": batting_list,
-            "bowling": bowling_list,
-            "total_runs": innings["runs"],
-            "wickets": innings["wickets"],
-            "extras": innings["extras"],
-            "overs": f"{innings['balls'] // 6}.{innings['balls'] % 6}" if innings["balls"] > 0 else "0.0",
-        })
-
-    match_info["scorecard"] = {"innings": innings_list}
+    match_info["scorecard"] = {"innings": build_scorecard_from_deliveries(deliveries)}
 
     return match_info

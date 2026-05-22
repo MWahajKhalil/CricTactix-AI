@@ -1,5 +1,10 @@
+#this file is responsible for loading configuration settings for the application, such as database connection strings and API keys. It uses pydantic's BaseSettings to define the settings and allows for environment variable overrides. The _resolve_sqlite_url function is a helper to ensure that SQLite database paths are correctly resolved, especially when using relative paths in the DATABASE_URL setting.
+
+
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#this function resolves the SQLite database URL, especially when using relative paths. It checks multiple potential locations for the database file to ensure it can be found regardless of the current working directory. This is particularly useful for development environments where the location of the database file may vary. If the DATABASE_URL does not start with "sqlite:///", it returns the value unchanged, allowing for other types of databases to be used without modification.
 
 
 def _resolve_sqlite_url(value: str) -> str:

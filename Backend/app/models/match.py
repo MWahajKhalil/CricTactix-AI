@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Date
+from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy.orm import relationship
 from app.core.database import Base
+
 
 class Match(Base):
     __tablename__ = "matches"
@@ -13,3 +15,11 @@ class Match(Base):
     team_1 = Column(String(255))
     team_2 = Column(String(255))
     winner = Column(String(255))
+
+    # optional canonical team foreign keys (nullable for backward compatibility)
+    team_1_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    team_2_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+
+    # convenience relationships (won't be populated unless FK set)
+    team_1_obj = relationship("Team", foreign_keys=[team_1_id], lazy="joined")
+    team_2_obj = relationship("Team", foreign_keys=[team_2_id], lazy="joined")
