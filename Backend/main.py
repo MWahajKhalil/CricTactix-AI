@@ -1,9 +1,16 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.health import router as health_router
 from app.api.routes.matches import router as matches_router
 from app.api.routes.chat import router as chat_router
+
+# Import all models to register them with SQLAlchemy Base
+import app.models.match
+import app.models.delivery
+import app.models.player
+import app.models.team
+import app.models.team_season
+import app.models.team_season_player
 
 app = FastAPI(
     title="AI Cricket Tactical Analyst API",

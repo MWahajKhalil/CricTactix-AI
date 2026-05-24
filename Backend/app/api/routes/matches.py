@@ -1,13 +1,18 @@
-
 from typing import Optional, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, extract, func, or_, and_
 
 from app.core.database import get_db
 from app.models.delivery import Delivery
 from app.models.match import Match
+from app.schemas.matches import (
+    MatchesResponse,
+    TopWinnersResponse,
+    TopVenuesResponse,
+    MatchDetailResponse,
+)
 
 router = APIRouter(
     prefix="/matches",
@@ -300,7 +305,7 @@ def build_scorecard_from_deliveries(deliveries: list[Delivery]) -> list[dict]:
 
 # This endpoint is used by the frontend to fetch a paginated list of matches with optional filters. It supports filtering by team, match type, year, venue (with optional fuzzy matching), and winner. The results are returned in a structured format that includes pagination metadata.
 
-@router.get("/")
+@router.get("/", response_model=MatchesResponse)
 def get_all_matches(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=500),
@@ -398,7 +403,7 @@ def get_all_matches(
 
 
 #this endpoint is used by the frontend dashboard to show the top winning teams in the dataset. It aggregates the matches by winner and counts the number of wins for each team, then returns the top N teams based on the specified limit. This allows users to quickly see which teams have been most successful in the matches loaded into the system.
-@router.get("/stats/top-winners")
+@router.get("/stats/top-winners", response_model=TopWinnersResponse)
 def get_top_winners(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
     winners = (
         db.query(Match.winner, func.count().label("wins"))
@@ -416,7 +421,7 @@ def get_top_winners(limit: int = Query(5, ge=1, le=20), db: Session = Depends(ge
         ]
     }
 
-@router.get("/stats/top-venues")
+@router.get("/stats/top-venues", response_model=TopVenuesResponse)
 def get_top_venues(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
     venues = (
         db.query(Match.venue, func.count().label("matches"))
@@ -434,7 +439,7 @@ def get_top_venues(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get
     }
 
 #this endpoint is used by the frontend to fetch match details when a user clicks on a match from the list. It returns all relevant information about the match, which can then be displayed on the match detail page. 
-@router.get("/{match_id}")
+@router.get("/{match_id}", response_model=MatchDetailResponse)
 def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
     """Return single match details by internal ID."""
     match = db.query(Match).filter(Match.id == match_id).first()
@@ -464,3 +469,96 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
     match_info["scorecard"] = {"innings": build_scorecard_from_deliveries(deliveries)}
 
     return match_info
+
+# this is used to get the highest run scorer of all the matches 
+@router.get("/stats/highest-run-scorer")
+def get_highest_run_scorer(db: Session = Depends(get_db)):
+    """Return highest run scorer (leading cumulative run-scorer) of all matches in the database."""
+    result = (
+        db.query(
+            Delivery.batter,
+            func.sum(Delivery.runs_batter).label("total_runs")
+        )
+        .group_by(Delivery.batter)
+        .order_by(desc("total_runs"))
+        .first()
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="No delivery data found")
+        
+    return {
+        "highest_run_scorer": {
+            "player": result[0],
+            "runs": result[1]
+        }
+    }
+
+
+#this is used to get the highest run scorer of a batsman all time
+@router.get("/stats/highest-run-scorer-by-player")
+def get_highest_run_scorer_by_player(player: str, db: Session = Depends(get_db)):
+    """Return highest run scorer of a batsman (personal best in a single match) in the database."""
+    result = (
+        db.query(
+            Delivery.match_id,
+            func.sum(Delivery.runs_batter).label("match_runs")
+        )
+        .filter(Delivery.batter.ilike(f"%{player.strip()}%"))
+        .group_by(Delivery.match_id)
+        .order_by(desc("match_runs"))
+        .first()
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail=f"No delivery data found for player: {player}")
+        
+    return {
+        "highest_run_scorer": {
+            "player": player,
+            "runs": result[1],
+            "match_id": result[0]
+        }
+    }
+
+
+#this is used to get the highest wicket taker of all matches
+@router.get("/stats/highest-wicket-taker")
+def get_highest_wicket_taker(db: Session = Depends(get_db)):
+    """Return highest wicket taker (leading bowler wickets) of all matches in the database."""
+    bowler_wickets = ['bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket']
+    result = (
+        db.query(
+            Delivery.bowler,
+            func.count(Delivery.id).label("wickets")
+        )
+        .filter(Delivery.wicket_type.in_(bowler_wickets))
+        .group_by(Delivery.bowler)
+        .order_by(desc("wickets"))
+        .first()
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="No bowling data found")
+        
+    return {
+        "highest_wicket_taker": {
+            "player": result[0],
+            "wickets": result[1]
+        }
+    }
+
+
+#this is used to trigger background database seeding
+@router.post("/stats/seed-database")
+def seed_database(background_tasks: BackgroundTasks):
+    """
+    Triggers database seeding from raw Cricsheet PSL zip file in the background.
+    """
+    from app.data_pipeline.load_cricsheet import load_match_data
+    
+    background_tasks.add_task(load_match_data)
+    
+    return {
+        "status": "success",
+        "message": "Database seeding has been triggered in the background. It will populate all matches and deliveries shortly."
+    }
+
+

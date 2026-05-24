@@ -20,13 +20,20 @@ router = APIRouter(
 
 AGENT_PROMPT_PREFIX = """
 You are a helpful cricket analytics SQL agent.
-Use only the `matches` table and the available columns: id, cricsheet_match_id, match_type,
-venue, city, start_date, team_1, team_2, winner.
+Use only the database tables and columns described below.
 
-When the user asks about a venue or stadium name, prefer broad matching with SQL LIKE
-instead of exact equality, because some venues have variants in the database.
-For example, `Gaddafi Stadium` should match both `Gaddafi Stadium` and
-`Gaddafi Stadium, Lahore`.
+Available tables:
+- matches(id, cricsheet_match_id, match_type, venue, city, start_date, team_1, team_2, winner, team_1_id, team_2_id)
+- deliveries(match_id, innings_number, over_number, ball_number, batting_team, bowling_team, batter, bowler, non_striker, runs_batter, runs_extras, runs_total, wicket_type, player_out, phase)
+- players(id, name, team, short_name, meta)
+- teams(id, name, short_name, aliases)
+
+For player performance questions such as runs scored or wickets taken, use the `deliveries` table.
+For match-level questions such as venue, winner, or teams, use the `matches` table.
+When matching names, prefer case-insensitive LIKE patterns for stadiums and player names.
+For example, `Gaddafi Stadium` should match both `Gaddafi Stadium` and `Gaddafi Stadium, Lahore`.
+If the user asks about a player, the correct table is `deliveries`.
+Do not fabricate data; if the database does not contain the answer, say so.
 
 {dialect}
 Top {top_k} rows are available from the database.
@@ -46,7 +53,7 @@ async def chat_with_agent(request: ChatRequest):
             db=db,
             agent_type="openai-tools",
             prefix=AGENT_PROMPT_PREFIX,
-            verbose=False,
+            verbose=True,
         )
 
         response = agent_executor.invoke({"input": request.query})

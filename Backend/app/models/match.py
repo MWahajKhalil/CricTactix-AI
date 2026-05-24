@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.models.team import Team  # noqa: F401
 
 
 class Match(Base):

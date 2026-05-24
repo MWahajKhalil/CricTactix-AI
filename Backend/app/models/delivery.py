@@ -1,5 +1,5 @@
 
-# pyrefly: ignore [missing-import]
+# pyright: ignore [reportMissingImports]
 from sqlalchemy import Column, Integer, String, ForeignKey
 from app.core.database import Base
 
