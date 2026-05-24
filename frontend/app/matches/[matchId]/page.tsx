@@ -53,11 +53,9 @@ type MatchDetailPageProps = {
 
 export default async function MatchDetailPage({ params }: MatchDetailPageProps) {
   const resolvedParams = await params;
-  let match: MatchDetail | null = null;
+  const match = await getMatchById(resolvedParams.matchId).catch(() => null);
 
-  try {
-    match = await getMatchById(resolvedParams.matchId);
-  } catch {
+  if (!match) {
     return (
       <div className="min-h-screen bg-zinc-950 py-16 px-6 text-white sm:px-8 lg:px-12">
         <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/10 bg-zinc-900/90 p-10 text-center shadow-2xl shadow-black/40">
@@ -140,7 +138,7 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
 
         {match.scorecard ? (
           <div className="mt-10 space-y-8">
-            {match.scorecard.innings.map((innings) => (
+            {match.scorecard.innings.map((innings: Innings) => (
               <section key={innings.innings_number} className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -184,7 +182,7 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800">
-                          {innings.batting.map((bat) => (
+                          {innings.batting.map((bat: BattingStat) => (
                             <tr key={`${innings.innings_number}-${bat.player}`} className="hover:bg-zinc-950/80">
                               <td className="px-4 py-3">{bat.player}</td>
                               <td className="px-4 py-3 font-semibold text-white">{bat.runs}</td>
@@ -217,7 +215,7 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800">
-                          {innings.bowling.map((bowl) => (
+                          {innings.bowling.map((bowl: BowlingStat) => (
                             <tr key={`${innings.innings_number}-${bowl.player}`} className="hover:bg-zinc-950/80">
                               <td className="px-4 py-3">{bowl.player}</td>
                               <td className="px-4 py-3">{bowl.overs}</td>
