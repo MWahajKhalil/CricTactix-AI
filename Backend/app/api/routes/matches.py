@@ -13,55 +13,22 @@ from app.schemas.matches import (
     TopVenuesResponse,
     MatchDetailResponse,
 )
+from app.core.helpers import (
+    TEAM_ALIAS_MAP,
+    VENUE_ALIAS_MAP,
+    alias_values_for_term,
+)
+from app.services.match_service import (
+    build_scorecard_from_deliveries,
+    get_highest_run_scorer,
+    get_highest_run_scorer_by_player,
+    get_highest_wicket_taker,
+)
 
 router = APIRouter(
     prefix="/matches",
     tags=["Matches"],
 )
-
-TEAM_ALIAS_MAP = {
-    "lahore": ["Lahore Qalandars"],
-    "lahore qalandars": ["Lahore Qalandars"],
-    "karachi": ["Karachi Kings"],
-    "karachi kings": ["Karachi Kings"],
-    "hyderabad": ["Hyderabad Kingsmen"],
-    "hyderabad kingsmen": ["Hyderabad Kingsmen"],
-    "islamabad": ["Islamabad United"],
-    "islamabad united": ["Islamabad United"],
-    "peshawar": ["Peshawar Zalmi"],
-    "peshawar zalmi": ["Peshawar Zalmi"],
-    "quetta": ["Quetta Gladiators"],
-    "quetta gladiators": ["Quetta Gladiators"],
-    "multan": ["Multan Sultans"],
-    "multan sultans": ["Multan Sultans"],
-    "rawalpindi": ["Rawalpindiz"],
-    "rawalpindiz": ["Rawalpindiz"],
-}
-
-VENUE_ALIAS_MAP = {
-    "gaddafi": ["Gaddafi Stadium", "Gaddafi Stadium, Lahore"],
-    "gaddafi stadium": ["Gaddafi Stadium", "Gaddafi Stadium, Lahore"],
-    "national": ["National Stadium", "National Stadium, Karachi"],
-    "national stadium": ["National Stadium", "National Stadium, Karachi"],
-    "multan": ["Multan Cricket Stadium"],
-    "rawalpindi": ["Rawalpindi Cricket Stadium"],
-    "rawalpindi cricket": ["Rawalpindi Cricket Stadium"],
-    "sharjah": ["Sharjah Cricket Stadium"],
-    "sheikh zayed": ["Sheikh Zayed Stadium", "Sheikh Zayed Stadium, Abu Dhabi"],
-    "dubai": ["Dubai International Cricket Stadium"],
-    "dubai international": ["Dubai International Cricket Stadium"],
-    "abu dhabi": ["Sheikh Zayed Stadium", "Sheikh Zayed Stadium, Abu Dhabi"],
-}
-
-
-def normalize_alias_key(value: Optional[str]) -> str:
-    return value.strip().lower() if value and value.strip() else ""
-
-
-def alias_values_for_term(value: Optional[str], alias_map: dict[str, list[str]]) -> list[str]:
-    normalized = normalize_alias_key(value)
-    return alias_map.get(normalized, [])
-
 
 # ============================================================================
 # FILTER HELPERS
@@ -198,112 +165,8 @@ def apply_year_filter(query, year: Optional[int], year_from: Optional[int], year
 
 
 # ============================================================================
-# SCORECARD HELPERS
+# ROUTE ENDPOINTS
 # ============================================================================
-
-def calculate_batting_stats(player: str, stats: dict) -> dict:
-    """Calculate batting statistics for a player."""
-    balls = stats["balls"]
-    strike_rate = (stats["runs"] / balls * 100) if balls > 0 else 0.0
-    return {
-        "player": player,
-        "runs": stats["runs"],
-        "balls": balls,
-        "strike_rate": round(strike_rate, 1),
-    }
-
-
-def calculate_bowling_stats(player: str, stats: dict) -> dict:
-    """Calculate bowling statistics for a player."""
-    balls = stats["balls"]
-    overs = f"{balls // 6}.{balls % 6}" if balls > 0 else "0.0"
-    economy = (stats["runs_conceded"] / (balls / 6)) if balls > 0 else 0.0
-    return {
-        "player": player,
-        "overs": overs,
-        "runs_conceded": stats["runs_conceded"],
-        "wickets": stats["wickets"],
-        "economy": round(economy, 2),
-    }
-
-
-def build_scorecard_from_deliveries(deliveries: list[Delivery]) -> list[dict]:
-    """Aggregate deliveries into innings scorecards."""
-    innings_map: dict[int, dict] = {}
-    
-    # Aggregate deliveries into innings
-    for d in deliveries:
-        innings = innings_map.setdefault(cast(int, d.innings_number), {
-            "innings_number": d.innings_number,
-            "batting_team": d.batting_team,
-            "bowling_team": d.bowling_team,
-            "batting": {},
-            "bowling": {},
-            "runs": 0,
-            "balls": 0,
-            "wickets": 0,
-            "extras": 0,
-        })
-        
-        innings["runs"] += (d.runs_total or 0)
-        innings["extras"] += (d.runs_extras or 0)
-        if d.player_out:  # type: ignore
-            innings["wickets"] += 1
-        
-        # Track batting stats
-        batter = d.batter or "Unknown"
-        batting = innings["batting"].setdefault(batter, {"runs": 0, "balls": 0})
-        batting["runs"] += (d.runs_batter or 0)
-        
-        is_wide = (d.runs_extras or 0) > 0 and (d.runs_batter or 0) == 0 and d.wicket_type is None and (d.runs_total or 0) > 0
-        if not is_wide:  # type: ignore
-            batting["balls"] += 1
-            innings["balls"] += 1
-        
-        # Track bowling stats
-        bowler = d.bowler or "Unknown"
-        bowling = innings["bowling"].setdefault(bowler, {"runs_conceded": 0, "balls": 0, "wickets": 0})
-        bowling["runs_conceded"] += (d.runs_total or 0)
-        if not is_wide:  # type: ignore
-            bowling["balls"] += 1
-        if d.player_out:  # type: ignore
-            bowling["wickets"] += 1
-    
-    # Format innings data
-    innings_list = []
-    for innings_number in sorted(innings_map):
-        innings = innings_map[innings_number]
-        
-        # Format batting
-        batting_list = [
-            calculate_batting_stats(player, stats)
-            for player, stats in sorted(innings["batting"].items(), key=lambda x: (-x[1]["runs"], x[0]))
-        ]
-        
-        # Format bowling
-        bowling_list = [
-            calculate_bowling_stats(player, stats)
-            for player, stats in sorted(innings["bowling"].items(), key=lambda x: (-x[1]["wickets"], x[0]))
-        ]
-        
-        overs = f"{innings['balls'] // 6}.{innings['balls'] % 6}" if innings["balls"] > 0 else "0.0"
-        
-        innings_list.append({
-            "innings_number": innings["innings_number"],
-            "batting_team": innings["batting_team"],
-            "bowling_team": innings["bowling_team"],
-            "batting": batting_list,
-            "bowling": bowling_list,
-            "total_runs": innings["runs"],
-            "wickets": innings["wickets"],
-            "extras": innings["extras"],
-            "overs": overs,
-        })
-    
-    return innings_list
-
-
-# This endpoint is used by the frontend to fetch a paginated list of matches with optional filters. It supports filtering by team, match type, year, venue (with optional fuzzy matching), and winner. The results are returned in a structured format that includes pagination metadata.
 
 @router.get("/", response_model=MatchesResponse)
 def get_all_matches(
@@ -323,24 +186,14 @@ def get_all_matches(
     has_winner: Optional[bool] = Query(None, description="Show only matches with a recorded winner when true."),
     db: Session = Depends(get_db),
 ):
-    
     """
     Fetch loaded matches with optional pagination and filters.
-
-    - `page` and `per_page` control pagination.
-    - `search` performs a broad text search across teams, venue, city, and winner.
-    - `team` and `team_2` support merged team filter behavior.
-    - `winner`, `match_type`, `city`, and `venue` support partial matching.
-    - `venue_fuzzy` enables wildcard venue matching.
-    - `year_from` / `year_to` filter by start year range.
-    - `has_winner=true` returns only matches with a final winner.
     """
-
     query = db.query(Match)
     
     # Apply filters
     query = apply_team_filter(query, team, team_2)
-    if not team:  # Only apply standalone team_2 if team not provided
+    if not team:
         query = apply_team_2_filter(query, team_2)
     query = apply_search_filter(query, search if not team else None)
     query = apply_winner_filter(query, winner)
@@ -362,7 +215,7 @@ def get_all_matches(
     total = query.count()
 
     if total == 0:
-        return {"count": 0, "matches": []}
+        return {"count": 0, "page": page, "per_page": per_page, "matches": []}
 
     matches = (
         query.order_by(Match.start_date.desc())
@@ -402,9 +255,9 @@ def get_all_matches(
     }
 
 
-#this endpoint is used by the frontend dashboard to show the top winning teams in the dataset. It aggregates the matches by winner and counts the number of wins for each team, then returns the top N teams based on the specified limit. This allows users to quickly see which teams have been most successful in the matches loaded into the system.
 @router.get("/stats/top-winners", response_model=TopWinnersResponse)
 def get_top_winners(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
+    """Return top winning teams based on wins count."""
     winners = (
         db.query(Match.winner, func.count().label("wins"))
         .filter(Match.winner.isnot(None), Match.winner != "")
@@ -421,8 +274,10 @@ def get_top_winners(limit: int = Query(5, ge=1, le=20), db: Session = Depends(ge
         ]
     }
 
+
 @router.get("/stats/top-venues", response_model=TopVenuesResponse)
 def get_top_venues(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
+    """Return top venues based on matches count."""
     venues = (
         db.query(Match.venue, func.count().label("matches"))
         .group_by(Match.venue)
@@ -438,15 +293,14 @@ def get_top_venues(limit: int = Query(5, ge=1, le=20), db: Session = Depends(get
         ]
     }
 
-#this endpoint is used by the frontend to fetch match details when a user clicks on a match from the list. It returns all relevant information about the match, which can then be displayed on the match detail page. 
+
 @router.get("/{match_id}", response_model=MatchDetailResponse)
 def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
-    """Return single match details by internal ID."""
+    """Return single match details with aggregated scorecard innings."""
     match = db.query(Match).filter(Match.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    # Basic match info
     match_info = {
         "id": match.id,
         "cricsheet_id": match.cricsheet_match_id,
@@ -459,7 +313,6 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
         "city": match.city,
     }
 
-    # Build scorecard from deliveries
     deliveries = db.query(Delivery).filter(Delivery.match_id == match.id).order_by(
         Delivery.innings_number,
         Delivery.over_number,
@@ -470,83 +323,34 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
 
     return match_info
 
-# this is used to get the highest run scorer of all the matches 
+
 @router.get("/stats/highest-run-scorer")
-def get_highest_run_scorer(db: Session = Depends(get_db)):
-    """Return highest run scorer (leading cumulative run-scorer) of all matches in the database."""
-    result = (
-        db.query(
-            Delivery.batter,
-            func.sum(Delivery.runs_batter).label("total_runs")
-        )
-        .group_by(Delivery.batter)
-        .order_by(desc("total_runs"))
-        .first()
-    )
-    if not result:
+def get_highest_run_scorer_route(db: Session = Depends(get_db)):
+    """Return leading cumulative run scorer of all matches."""
+    res = get_highest_run_scorer(db)
+    if not res:
         raise HTTPException(status_code=404, detail="No delivery data found")
-        
-    return {
-        "highest_run_scorer": {
-            "player": result[0],
-            "runs": result[1]
-        }
-    }
+    return {"highest_run_scorer": res}
 
 
-#this is used to get the highest run scorer of a batsman all time
 @router.get("/stats/highest-run-scorer-by-player")
-def get_highest_run_scorer_by_player(player: str, db: Session = Depends(get_db)):
-    """Return highest run scorer of a batsman (personal best in a single match) in the database."""
-    result = (
-        db.query(
-            Delivery.match_id,
-            func.sum(Delivery.runs_batter).label("match_runs")
-        )
-        .filter(Delivery.batter.ilike(f"%{player.strip()}%"))
-        .group_by(Delivery.match_id)
-        .order_by(desc("match_runs"))
-        .first()
-    )
-    if not result:
+def get_highest_run_scorer_by_player_route(player: str, db: Session = Depends(get_db)):
+    """Return a specific player's highest innings score in a single match."""
+    res = get_highest_run_scorer_by_player(player, db)
+    if not res:
         raise HTTPException(status_code=404, detail=f"No delivery data found for player: {player}")
-        
-    return {
-        "highest_run_scorer": {
-            "player": player,
-            "runs": result[1],
-            "match_id": result[0]
-        }
-    }
+    return {"highest_run_scorer": res}
 
 
-#this is used to get the highest wicket taker of all matches
 @router.get("/stats/highest-wicket-taker")
-def get_highest_wicket_taker(db: Session = Depends(get_db)):
-    """Return highest wicket taker (leading bowler wickets) of all matches in the database."""
-    bowler_wickets = ['bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket']
-    result = (
-        db.query(
-            Delivery.bowler,
-            func.count(Delivery.id).label("wickets")
-        )
-        .filter(Delivery.wicket_type.in_(bowler_wickets))
-        .group_by(Delivery.bowler)
-        .order_by(desc("wickets"))
-        .first()
-    )
-    if not result:
+def get_highest_wicket_taker_route(db: Session = Depends(get_db)):
+    """Return all-time leading bowler wickets taker."""
+    res = get_highest_wicket_taker(db)
+    if not res:
         raise HTTPException(status_code=404, detail="No bowling data found")
-        
-    return {
-        "highest_wicket_taker": {
-            "player": result[0],
-            "wickets": result[1]
-        }
-    }
+    return {"highest_wicket_taker": res}
 
 
-#this is used to trigger background database seeding
 @router.post("/stats/seed-database")
 def seed_database(background_tasks: BackgroundTasks):
     """
@@ -560,5 +364,3 @@ def seed_database(background_tasks: BackgroundTasks):
         "status": "success",
         "message": "Database seeding has been triggered in the background. It will populate all matches and deliveries shortly."
     }
-
-

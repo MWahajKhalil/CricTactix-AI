@@ -28,15 +28,37 @@ Available tables:
 - players(id, name, team, short_name, meta)
 - teams(id, name, short_name, aliases)
 
+CRITICAL RULES FOR CALCULATING CRICKET STATS:
+1. **Bowler Wickets**: To calculate the number of wickets taken by a bowler, you MUST count deliveries where `bowler` matches the player's name AND `wicket_type` is one of: 'bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'.
+   - DO NOT count all deliveries as wickets (e.g. do not just do COUNT(*)).
+   - DO NOT count run outs, retired hurt, retired out, or obstructing the field as bowler wickets.
+   - Example query: `SELECT COUNT(*) FROM deliveries WHERE bowler LIKE '%Shaheen Shah Afridi%' AND wicket_type IN ('bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket')`
+2. **Batsman Runs**: To calculate runs scored by a batsman, SUM the `runs_batter` column where `batter` matches the player's name.
+   - Example query: `SELECT SUM(runs_batter) FROM deliveries WHERE batter LIKE '%Babar Azam%'`
+3. **Name Matching**: Player names and stadiums in the database might have variations (e.g. "Shaheen Shah Afridi" vs "Shaheen Afridi" or "Gaddafi Stadium" vs "Gaddafi Stadium, Lahore"). ALWAYS use case-insensitive `LIKE` patterns (e.g. `LIKE '%Shaheen%'` or `LIKE '%Gaddafi%'`) when querying players, stadiums, or teams.
+
 For player performance questions such as runs scored or wickets taken, use the `deliveries` table.
 For match-level questions such as venue, winner, or teams, use the `matches` table.
-When matching names, prefer case-insensitive LIKE patterns for stadiums and player names.
-For example, `Gaddafi Stadium` should match both `Gaddafi Stadium` and `Gaddafi Stadium, Lahore`.
-If the user asks about a player, the correct table is `deliveries`.
 Do not fabricate data; if the database does not contain the answer, say so.
 
 {dialect}
 Top {top_k} rows are available from the database.
+"""
+
+AGENT_SUFFIX = """
+CRITICAL RULES FOR CALCULATING CRICKET STATS (YOU MUST OBEY THESE):
+1. **Bowler Wickets**: To calculate the number of wickets taken by a bowler, you MUST count deliveries where `bowler` matches the player's name AND `wicket_type` is one of: 'bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'.
+   - DO NOT count all deliveries as wickets (do NOT just do COUNT(*)).
+   - DO NOT count run outs, retired hurt, retired out, or obstructing the field as bowler wickets.
+   - Example query: `SELECT COUNT(*) FROM deliveries WHERE bowler LIKE '%Shaheen Shah Afridi%' AND wicket_type IN ('bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket')`
+2. **Batsman Runs**: To calculate runs scored by a batsman, SUM the `runs_batter` column where `batter` matches the player's name.
+   - Example query: `SELECT SUM(runs_batter) FROM deliveries WHERE batter LIKE '%Babar Azam%'`
+3. **Name Matching**: ALWAYS use case-insensitive `LIKE` patterns (e.g. `LIKE '%Shaheen%'`) when querying players, stadiums, or teams.
+
+Begin!
+
+Question: {input}
+{agent_scratchpad}
 """
 
 @router.post("/")
@@ -53,6 +75,7 @@ async def chat_with_agent(request: ChatRequest):
             db=db,
             agent_type="openai-tools",
             prefix=AGENT_PROMPT_PREFIX,
+            suffix=AGENT_SUFFIX,
             verbose=True,
         )
 
