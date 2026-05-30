@@ -1,128 +1,458 @@
-# Backend Architecture Deep Dive - Interview Level Understanding
+# CricTactix-AI: Backend Architecture Deep Dive
+### *An Interview-Level Engineering & System Design Guide*
+
+This document provides a highly detailed, comprehensive, and production-grade breakdown of the **CricTactix-AI Backend Application**. It is designed to give engineers, developers, and technical interview candidates an in-depth understanding of the system's architecture, design decisions, data ingestion pipelines, database schemas, and AI agent reasoning loops.
+
+---
 
 ## 📋 Table of Contents
-1. [Overall Architecture Philosophy](#overall-architecture-philosophy)
-2. [Project Structure & Organization](#project-structure--organization)
-3. [Core Components Explained](#core-components-explained)
-4. [Data Flow & Request Lifecycle](#data-flow--request-lifecycle)
-5. [Design Decisions & Why](#design-decisions--why)
-6. [Alternatives We Considered](#alternatives-we-considered)
-7. [How to Make Changes](#how-to-make-changes)
+1. [System Architecture & Core Philosophy](#1-system-architecture--core-philosophy)
+2. [Codebase Directory Structure](#2-codebase-directory-structure)
+3. [The Six-Model Relational Schema](#3-the-six-model-relational-schema)
+4. [High-Performance Ingestion Pipeline (`load_cricsheet.py`)](#4-high-performance-ingestion-pipeline-load_cricsheetpy)
+5. [The REST API & Scorecard Generation Service](#5-the-rest-api--scorecard-generation-service)
+6. [The AI Analytics Agent (`chat.py`)](#6-the-ai-analytics-agent-chatpy)
+7. [End-to-End Request Lifecycle](#7-end-to-end-request-lifecycle)
+8. [Production Scaling: SQLite to PostgreSQL](#8-production-scaling-sqlite-to-postgresql)
+9. [Interview Preparation Guide (15+ Q&As)](#9-interview-preparation-guide-15-qas)
 
 ---
 
-## Overall Architecture Philosophy
+## 1. System Architecture & Core Philosophy
 
-### What Problem Does This Solve?
+CricTactix-AI is built on a **decoupled, API-first architecture** consisting of a Next.js frontend and a high-performance **FastAPI** backend. 
 
-The backend is a **REST API + AI Agent** that answers cricket questions by:
-1. Storing cricket match data in a database
-2. Allowing both structured API calls and natural language AI queries
-3. Combining **database tool** (SQL) with **AI reasoning** (OpenAI LLM)
+```
+                                  +-------------------+
+                                  |   Next.js Client  |
+                                  +---------+---------+
+                                            |
+                                  HTTP REST / JSON APIs
+                                            |
+                                            v
+                                  +---------+---------+
+                                  |    FastAPI App    |
+                                  +----+----+----+----+
+                                       |    |    |
+                 +---------------------+    |    +---------------------+
+                 |                          |                          |
+                 v                          v                          v
+      +--------------------+      +--------------------+      +--------------------+
+      |  Scorecard Service |      |  AI Analytics Agent|      | Ingestion Pipeline |
+      |  (Business Logic)  |      |     (LangChain)    |      |  (Background Task) |
+      +----------+---------+      +----------+---------+      +----------+---------+
+                 |                           |                           |
+                 |                     ORM / SQL Queries                 |
+                 +--------------------------->+<-------------------------+
+                                             |
+                                             v
+                                  +----------+---------+
+                                  | SQLite / Postgres  |
+                                  +--------------------+
+```
 
-This is a **Version 2 (V2)** implementation:
-- **V1 was**: Data + basic API (just CRUD operations)
-- **V2 is**: Data + API + AI agent that can read the database
-- **V3 would be**: Add text retrieval (RAG with ChromaDB)
-- **V4 would be**: Add intelligent routing between multiple tools (LangGraph)
-
-### Why FastAPI?
-
-**FastAPI** is chosen because:
-- ✅ Fast async support (can handle multiple requests simultaneously)
-- ✅ Automatic API documentation (Swagger UI at `/docs`)
-- ✅ Strong type hints and validation (Pydantic)
-- ✅ Easy to integrate with LLMs and external APIs
-- ❌ NOT Flask (too minimal for this complexity)
-- ❌ NOT Django (too heavyweight, overkill for an API-first service)
+### Key Architectural Pillars
+- **Decoupled Engine**: The core data engine behaves as a deterministic relational calculator, while the AI Agent sits on top of it as an autonomous reasoning layer. 
+- **FastAPI Core**: Handpicked for its asynchronous concurrency model, automatic documentation (`/docs` Swagger interface), and lightning-fast JSON parsing using Pydantic.
+- **ORM abstraction**: Standardized on **SQLAlchemy 2.0 (Declarative)** to shield developers from raw SQL syntax, enforce rigid relationship constraints, and allow seamless database migrations.
 
 ---
 
-## Project Structure & Organization
+## 2. Codebase Directory Structure
+
+The backend application is strictly modularized to enforce **Separation of Concerns (SoC)**:
 
 ```
 Backend/
-├── main.py                 # FastAPI app entrypoint (registers all routes)
-├── requirements.txt        # Python dependencies
-├── cricket_ai.db          # SQLite database (the data)
+├── main.py                     # Entrypoint; registers all API routers, middleware & CORS
+├── requirements.txt            # Python dependency definitions
+├── cricket_ai.db               # The active SQLite relational database (gitignored)
+├── test_cricket_ai.db          # Isolated database used specifically during Pytest runs
 │
 ├── app/
 │   ├── __init__.py
 │   │
-│   ├── core/              # *** Core infrastructure ***
-│   │   ├── config.py      # Settings & environment variables
-│   │   └── database.py    # SQLAlchemy setup (connection + session factory)
+│   ├── core/                   # Centralized infrastructure and setup
+│   │   ├── config.py           # Config manager (Pydantic BaseSettings, env resolver)
+│   │   ├── database.py         # SQLAlchemy engine setup and thread-safe session generator
+│   │   └── helpers.py          # String matching & alias dictionaries (Teams & Venues)
 │   │
-│   ├── models/            # *** Database schema (ORM) ***
-│   │   ├── match.py       # Match table definition
-│   │   ├── delivery.py    # Delivery (ball-by-ball) table definition
-│   │   └── player.py      # Player table definition
+│   ├── models/                 # Database Schema Definition (SQLAlchemy Declarative Models)
+│   │   ├── match.py            # Match metadata and canonical team mapping
+│   │   ├── delivery.py         # Ball-by-ball delivery information (micro-level data)
+│   │   ├── player.py           # Player profile definition
+│   │   ├── team.py             # Team identities & alias structures
+│   │   ├── team_season.py      # Tracks team participations across calendar years
+│   │   └── team_season_player.py # Roster mapping of players to a specific team's season
 │   │
-│   ├── schemas/           # *** Request/Response validators ***
-│   │   └── chat.py        # Pydantic models for chat endpoint
+│   ├── schemas/                # Request/Response DTO Validation contracts (Pydantic)
+│   │   ├── chat.py             # Contracts for chat-related endpoints
+│   │   └── matches.py          # Contracts for match listings, scorecards and stats
 │   │
-│   ├── services/          # *** Business logic (optional) ***
-│   │   └── (could add data processing here)
+│   ├── services/               # Reusable business logic (domain service layer)
+│   │   ├── __init__.py
+│   │   └── match_service.py    # Scorecard builder & aggregated statistical calculations
 │   │
-│   └── api/               # *** API routes/endpoints ***
-│       └── routes/
-│           ├── health.py      # GET /api/health
-│           ├── matches.py     # GET /api/matches, /api/matches/:id
-│           ├── chat.py        # POST /api/chat (AI agent)
-│           └── players.py     # GET /api/players/compare
+│   ├── api/                    # Endpoint routers grouped by domain
+│   │   └── routes/
+│   │       ├── chat.py         # POST /api/chat - LangChain-based SQL Agent endpoint
+│   │       ├── health.py       # GET /api/health - Liveness / readiness check
+│   │       └── matches.py      # GET /api/matches, stats, and background db seeding
+│   │
+│   └── data_pipeline/          # Raw data ingestion utilities
+│       └── load_cricsheet.py   # Bulk ingestion, JSON parser & phase calculator
 │
-└── tests/
-    ├── conftest.py        # Pytest setup
-    └── test_api.py        # Integration tests
-```
-
-### Why This Structure?
-
-| Folder | Why |
-|--------|-----|
-| **core/** | Centralize config & DB setup so all modules reuse the same database connection |
-| **models/** | SQLAlchemy ORM models = database tables. Keeps schema definition separate from logic |
-| **schemas/** | Pydantic validators ensure API requests are properly typed. Decouples API from DB |
-| **api/routes/** | Each route file is a logical endpoint. Easy to find and modify |
-| **tests/** | Integration tests verify all endpoints work together |
-
----
-
-## Core Components Explained
-
-### 1. **config.py** - Settings Management
-
-```python
-class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///./cricket_ai.db"
-    OPENAI_API_KEY: str | None = None
-```
-
-**What it does:**
-- Reads `.env` file for configuration
-- Provides a single `settings` object that all modules use
-- Resolves SQLite paths dynamically (works from any directory)
-
-**Why this pattern?**
-- ✅ Centralized config (no hardcoded values scattered in code)
-- ✅ Environment variables can override defaults (local dev vs. production)
-- ✅ `BaseSettings` auto-loads from `.env` file
-- ❌ Alternative: Pass config as arguments everywhere (tedious, error-prone)
-
-**How to change it:**
-Edit `.env` file to use PostgreSQL instead:
-```
-DATABASE_URL=postgresql://user:pass@localhost/cricket_ai
+└── tests/                      # Automated Test Suite (Pytest framework)
+    ├── conftest.py            # Setup and tear down fixtures for test DB
+    └── test_api.py            # Integration test cases for API routes
 ```
 
 ---
 
-### 2. **database.py** - Database Connection
+## 3. The Six-Model Relational Schema
+
+The database utilizes six declarative SQLAlchemy models. Unlike simple flattened schemas, this structure maps players, rosters, seasons, matches, and delivery metrics in a fully normalized relational graph.
+
+```
+                         +-------------+
+                         |    Team     |
+                         +------+------+
+                                | 1
+                                |
+                                | 1..*
+                         +------+------+
+                         |  TeamSeason |
+                         +------+------+
+                                | 1
+                                |
+                                | 1..*
+  +------------+   1..*  +------+------+  1..*   +------------+
+  |   Match    +-------->+  TeamSeason |<--------+   Player   |
+  +-----+------+         |   Player    |         +------+-----+
+        | 1              +-------------+                |
+        |                                               |
+        | 1..*                                          | 1..* (via name)
+  +-----+------+                                        |
+  |  Delivery  +----------------------------------------+
+  +------------+
+```
+
+### 1. `Team` (`teams` table)
+Stores canonical records of franchises and national teams.
+- `id` (Integer, Primary Key)
+- `name` (String, Unique, Index): Canonical team name (e.g., `"Lahore Qalandars"`).
+- `short_name` (String, Nullable): Abbreviated tag (e.g., `"Lahore"`).
+- `aliases` (JSON, Nullable): Dynamic list of recognized variations.
+
+### 2. `Player` (`players` table)
+Stores canonical player profiles.
+- `id` (Integer, Primary Key)
+- `name` (String, Unique, Index): Full player name (e.g., `"Babar Azam"`).
+- `short_name` (String, Nullable): e.g., `"Babar"`.
+- `meta` (JSON, Nullable): Holds extensible metadata (batting style, birthdate).
+
+### 3. `TeamSeason` (`team_seasons` table)
+Bridges a `Team` to a calendar year.
+- `id` (Integer, Primary Key)
+- `team_id` (Integer, Foreign Key pointing to `teams.id`)
+- `year` (Integer, Index): Calendar year of active competition.
+- `competition` (String, Nullable): League classification (e.g., `"Pakistan Super League"`).
+
+### 4. `TeamSeasonPlayer` (`team_season_players` table)
+Defines team rosters and roles for a specific year.
+- `id` (Integer, Primary Key)
+- `team_season_id` (Integer, Foreign Key pointing to `team_seasons.id`)
+- `player_id` (Integer, Foreign Key pointing to `players.id`)
+- `role` (String, Nullable): Playing role (e.g., `"Batsman"`, `"Bowler"`, `"Allrounder"`).
+- `squad_number` (Integer, Nullable): Shirt number.
+
+### 5. `Match` (`matches` table)
+Represents a match event with references to both teams.
+- `id` (Integer, Primary Key)
+- `cricsheet_match_id` (String, Unique, Index): Unique match code from Cricsheet.
+- `match_type` (String): e.g., `"T20"`.
+- `venue` (String), `city` (String): Location data.
+- `start_date` (Date): Play commencement date.
+- `team_1` (String), `team_2` (String): Flat team names for fast query filters.
+- `winner` (String): Winner team name.
+- `team_1_id` / `team_2_id` (Integer, Foreign Keys to `teams.id`): Canonical team relationships.
+
+### 6. `Delivery` (`deliveries` table)
+The micro-data table storing ball-by-ball actions. 
+- `id` (Integer, Primary Key)
+- `match_id` (Integer, Foreign Key pointing to `matches.id`)
+- `innings_number` (Integer): Innings indicator (1 or 2).
+- `over_number` (Integer), `ball_number` (Integer): State tracking.
+- `batting_team` (String), `bowling_team` (String): Flat team names.
+- `batter` (String), `bowler` (String), `non_striker` (String): Player references.
+- `runs_batter` (Integer): Runs scored directly from the bat.
+- `runs_extras` (Integer): Extra runs (wides, no-balls, byes, leg-byes).
+- `runs_total` (Integer): Total runs scored on the delivery (`runs_batter + runs_extras`).
+- `wicket_type` (String, Nullable): Dismissal method (e.g., `"bowled"`, `"caught"`, `"run out"`).
+- `player_out` (String, Nullable): Name of dismissed player.
+- `phase` (String, Nullable): Powerplay, Middle, or Death.
+
+---
+
+## 4. High-Performance Ingestion Pipeline (`load_cricsheet.py`)
+
+A primary bottleneck in data-heavy analytics apps is database insertion speed. A single T20 match contains ~250 deliveries. Loading 100 matches flatly would require 25,000+ DB transactions, slowing down seeding. 
+
+To overcome this, CricTactix-AI uses a highly optimized, custom ETL pipeline in `app/data_pipeline/load_cricsheet.py`:
+
+```
+                       +-----------------------------+
+                       |    Extract: psl_json.zip    |
+                       +--------------+--------------+
+                                      |
+                                      v
+                       +-----------------------------+
+                       |   Pre-fetch existing data   |
+                       |  into in-memory dictionary  |
+                       +--------------+--------------+
+                                      |
+                       +--------------v--------------+
+                       |  Iterate through JSON files |
+                       +--------------+--------------+
+                                      |
+                                      |-- Match exists? -> Skip.
+                                      |
+                                      v
+                       +-----------------------------+
+                       |    Resolve/Create Entities  |
+                       | (Teams, Players, Seasons)   |
+                       +--------------+--------------+
+                                      |
+                                      v
+                       +-----------------------------+
+                       |   db.flush() (Obtains IDs)  |
+                       +--------------+--------------+
+                                      |
+                                      v
+                       +-----------------------------+
+                       |  Calculate Delivery Phases  |
+                       |  (Powerplay, Middle, Death) |
+                       +--------------+--------------+
+                                      |
+                                      v
+                       +-----------------------------+
+                       |   db.bulk_save_objects()    |
+                       +--------------+--------------+
+                                      |
+                                      v
+                       +-----------------------------+
+                       |    Atomic Commit to Disk    |
+                       +-----------------------------+
+```
+
+### Ingestion Optimizations Explained
+
+1. **In-Memory Entity Caching**:
+   Before parsing a single JSON match file, the script queries the database *once* to pull all existing `Team`, `Player`, `TeamSeason`, and `Match` entities into Python dictionaries:
+   ```python
+   existing_teams = {t.name: t for t in db.query(Team).all()}
+   existing_players = {p.name: p for p in db.query(Player).all()}
+   ```
+   When processing matches, the pipeline checks these dictionaries first. This completely avoids executing thousands of redundant `SELECT` queries (avoiding the $N+1$ query problem during ingestion).
+
+2. **The `db.flush()` Technique**:
+   To map relationships during a single transaction, the script uses SQLAlchemy's `.flush()` rather than `.commit()`. Calling `.flush()` sends SQL instructions to the database, allowing SQLite to generate primary key IDs (e.g., `new_match.id`) in memory without executing expensive disk I/O operations.
+
+3. **Over-based Phase Calculation**:
+   During delivery parsing, the pipeline calculates match phases dynamically depending on the current over:
+   ```python
+   def get_phase(over: int, match_type: str) -> str:
+       if match_type and "T20" in match_type.upper():
+           if over < 6: return "Powerplay"
+           elif over < 15: return "Middle"
+           else: return "Death"
+       return "Unknown"
+   ```
+
+4. **SQLAlchemy `bulk_save_objects`**:
+   Instead of using standard `db.add()` inside loops, all `Delivery` instances for a match are appended to a list and pushed in a single batch insert operation:
+   ```python
+   db.bulk_save_objects(deliveries_to_insert)
+   ```
+
+5. **Atomic Commit**:
+   Only after all match files have been completely read and flushed does the script issue a single, atomic `db.commit()` call. This ensures either all data is successfully written, or a total rollback occurs if an error is thrown, maintaining transaction safety.
+
+---
+
+## 5. The REST API & Scorecard Generation Service
+
+The API layer is structured to support flexible searching and complex aggregations.
+
+### Dynamic Match Listing & Bidirectional Team Filtering
+
+The `GET /api/matches/` route includes standard features such as pagination, text searching, and bidirectional team filters:
+- **Fuzzy Name and Venue Aliasing**: Integrates `TEAM_ALIAS_MAP` and `VENUE_ALIAS_MAP` from `core/helpers.py`. If a user queries `"gaddafi"`, the system automatically queries variants like `"Gaddafi Stadium, Lahore"`.
+- **Bidirectional Match Filters**: If both `team` and `team_2` are provided, the system queries for match occurrences where:
+  $$\text{(Team 1} = A \land \text{Team 2} = B) \lor (\text{Team 1} = B \land \text{Team 2} = A)$$
+
+### Scorecard Aggregation Pipeline
+
+Rather than saving structured scorecard reports directly, the application aggregates flat ball-by-ball `deliveries` in the database into standard scorecards dynamically in `app/services/match_service.py`:
 
 ```python
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str, Any]]:
+    # 1. Maps each innings (1st innings vs 2nd innings)
+    # 2. Accumulates runs_total and extras_total for the team
+    # 3. Tracks batsmen: runs scored, balls faced (excluding Wides), strike rate calculation
+    # 4. Tracks bowlers: runs conceded, balls bowled, economy rate, and wickets
+```
 
+#### Bowling Wicket Calculation
+To match ICC scoring rules, the system only counts bowler wickets based on active dismissals:
+```python
+bowler_wickets = ('bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket')
+if delivery.wicket_type in bowler_wickets:
+    bowler_stats["wickets"] += 1
+```
+*Note: Run outs, retired hurt, retired out, and obstructing the field are correctly ignored from bowler statistics.*
+
+---
+
+## 6. The AI Analytics Agent (`chat.py`)
+
+The most advanced route is `POST /api/chat/`, which hosts a **LangChain SQL Database Agent**. It acts as a natural language compiler that translates plain English queries into structured SQLite queries, runs them, and interprets the results.
+
+```
+                  +--------------------------------+
+                  | User: "How many runs did Babar |
+                  |  score in the 2024 Powerplay?" |
+                  +---------------+----------------+
+                                  |
+                                  v
+                  +--------------------------------+
+                  |  Agent loads Schema & Prompt   |
+                  +---------------+----------------+
+                                  |
+                                  v
+                  +--------------------------------+
+                  |        OpenAI LLM Loop         |
+                  |  (Drafts SQL based on rules)   |
+                  +---------------+----------------+
+                                  |
+            SQL: SELECT SUM(runs_batter) FROM deliveries 
+            WHERE batter LIKE '%Babar%' AND phase = 'Powerplay'
+                                  |
+                                  v
+                  +--------------------------------+
+                  |  Executes query on SQLite DB  |
+                  +---------------+----------------+
+                                  |
+                        Result: [{"sum": 348}]
+                                  |
+                                  v
+                  +--------------------------------+
+                  |  LLM generates final response  |
+                  | "Babar scored 348 runs..."     |
+                  +---------------+----------------+
+                                  |
+                                  v
+                  +--------------------------------+
+                  |      JSON Payload Return       |
+                  +--------------------------------+
+```
+
+### Agent Configuration Details
+- **Engine**: ChatOpenAI (`gpt-4o-mini`).
+- **Temperature = 0**: Minimizes halluncinations and ensures deterministic responses.
+- **Safety Prompts**: A rigid system instruction (`AGENT_PROMPT_PREFIX` and `AGENT_SUFFIX`) defines available tables and dictates how to calculate statistics.
+
+#### The AI Safety Prompt Guardrails:
+1. **Bowler Wickets constraint**: Explicitly defines bowler wickets to ensure the agent uses the correct conditional `WHERE wicket_type IN (...)` query instead of a generic `COUNT(*)` of dismissals.
+2. **Name Matching rule**: Dictates that the AI must always use case-insensitive SQL `LIKE` clauses (e.g., `LIKE '%Shaheen%'`) instead of strict matches (e.g., `= 'Shaheen'`), preventing failures due to minor spelling differences.
+3. **Information Grounding rule**: Forbids the agent from fabricating data. If a requested player or stat is missing, it must return a clear refusal.
+
+---
+
+## 7. End-to-End Request Lifecycle
+
+Here is the exact journey of a request sent to the `/api/matches/` route:
+
+1. **HTTP Handshake**: The frontend issues an HTTP GET request to `http://localhost:8000/api/matches/?team=Karachi&page=1`.
+2. **CORS Validation**: FastAPI's `CORSMiddleware` intercepts the request, inspecting origins, methods, and headers, and allows access since `http://localhost:3000` is trusted.
+3. **Schema Validation**: Pydantic validates incoming URL query parameters against type constraints (e.g., checking that `page` is an integer $\ge 1$).
+4. **Session Allocation**: FastAPI retrieves a thread-safe database connection session from the `get_db` generator:
+   ```python
+   def get_db():
+       db = SessionLocal()
+       try: yield db
+       finally: db.close()
+   ```
+5. **Fuzzy Expansion**: The controller maps the keyword `"Karachi"` through `helpers.py`, expanding it to match `"Karachi Kings"`.
+6. **SQL Generation & Execution**: SQLAlchemy generates the corresponding SQL query with dynamic parameters and sends it to SQLite:
+   ```sql
+   SELECT * FROM matches 
+   WHERE team_1 LIKE '%Karachi%' OR team_2 LIKE '%Karachi%' 
+   ORDER BY start_date DESC 
+   LIMIT 50 OFFSET 0;
+   ```
+7. **Response Serialization**: The fetched match models are serialized into a clean JSON structure, the database session is closed, and the server returns a `200 OK` JSON response.
+
+---
+
+## 8. Production Scaling: SQLite to PostgreSQL
+
+SQLite is excellent for development because it is a lightweight, zero-configuration file on disk. However, in production environments with high traffic, it suffers from write locks and concurrency limitations.
+
+### How to Scale the App to PostgreSQL:
+SQLAlchemy makes database migration straightforward. To switch databases:
+
+1. **Install Postgres Driver**:
+   ```bash
+   pip install psycopg2-binary
+   ```
+2. **Update Environment Variable**:
+   Change the `DATABASE_URL` in `.env` (or production environment settings):
+   ```ini
+   DATABASE_URL=postgresql://db_user:db_password@localhost:5432/crictactix_db
+   ```
+3. **Adjust Connection Configurations**:
+   PostgreSQL connection engines handle threading differently than SQLite. The application handles this dynamically in `app/core/database.py`:
+   ```python
+   # SQLite requires check_same_thread=False, PostgreSQL does not
+   connect_args = {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+   engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+   ```
+4. **Run Background Seeding**:
+   Call the `POST /api/matches/stats/seed-database` endpoint. The pipeline will automatically create the PostgreSQL tables using `Base.metadata.create_all(bind=engine)` and seed the data without needing any SQL schema adjustments.
+
+---
+
+## 9. Interview Preparation Guide (15+ Q&As)
+
+These interview questions are designed to prepare you for senior backend and AI system design interviews:
+
+### Q1: Why did you choose FastAPI over traditional frameworks like Django or Flask?
+*Answer:* 
+**Django** is an all-in-one framework. However, its built-in ORM is heavy, it lacks async-native performance out of the box, and it includes unnecessary features for a decoupled single-page application.
+**Flask** is lightweight but lacks native async handling, requires manual integration for type safety, and does not build API schemas automatically.
+**FastAPI** is asynchronous-native, built on **Starlette** and **Pydantic** for high performance. It generates automatic Swagger docs using the OpenAPI standard, and provides a powerful dependency injection system (`Depends`), making it perfect for modern API development and LLM integration.
+
+### Q2: What is the $N+1$ query problem, and how did you prevent it during database seeding?
+*Answer:* The $N+1$ query problem occurs when an application executes one query to fetch parent records, and then issues $N$ subsequent queries to fetch child records for each parent. During parsing, looking up players or teams in a loop would cause thousands of database hits.
+We solved this by **pre-fetching all existing records into memory** before processing:
+```python
+existing_players = {p.name: p for p in db.query(Player).all()}
+```
+We then perform fast dictionary lookups in Python ($O(1)$ complexity) instead of querying the database, reducing database interaction to a single initial query.
+
+### Q3: How does the AI agent translate natural language into SQL safely? Doesn't it pose a risk of SQL Injection?
+*Answer:* There are two layers of safety protecting the database:
+1. **Parameterized Queries**: Under the hood, LangChain's SQLDatabase utility uses SQLAlchemy to connect to the database. All queries are parsed and executed using parameterized execution, meaning user inputs are treated as strings rather than executable SQL commands.
+2. **Read-Only / Sandboxed Scope**: In a production environment, the database user credentials passed to the AI agent should only have read access (`SELECT` permissions). The agent is physically unable to run write operations like `DROP TABLE` or `DELETE` because the underlying database account lacks the privileges to execute them.
+
+### Q4: Why did you use `db.flush()` instead of `db.commit()` inside the match processing loops during data ingestion?
+*Answer:* A `db.commit()` commits the current transaction to disk, writing all changes permanently. This requires slow disk I/O operations.
+`db.flush()` sends the pending operations to the database memory buffer instead. This allows the database to check constraints and generate primary keys (so we can get `match.id` to link deliveries) without writing anything to disk. By using `db.flush()` in our loops and calling `db.commit()` once at the very end, we perform a single, fast disk write transaction.
+
+### Q5: How do you handle database sessions in FastAPI routes? What happens if a database query fails midway?
+*Answer:* We use FastAPI's dependency injection system with a generator function `get_db()`:
+```python
 def get_db():
     db = SessionLocal()
     try:
@@ -130,525 +460,51 @@ def get_db():
     finally:
         db.close()
 ```
+FastAPI injects a session into the route and ensures that the session is closed when the request finishes, even if an exception is thrown. For write operations in our pipeline, we wrap the logic in a `try/except` block and call `db.rollback()` on failure to revert any partial changes, keeping our database consistent.
 
-**What it does:**
-- Creates a database engine (connection pool)
-- Creates a session factory (for transactions)
-- Provides `get_db()` dependency that FastAPI injects into routes
+### Q6: Why did you set the temperature of the ChatOpenAI model to `0` in the chat router?
+*Answer:* Temperature controls the randomness of an LLM's responses. A higher temperature makes the output more creative but unpredictable.
+For database query translation, we need the output to be deterministic and reliable. By setting the temperature to `0`, we force the LLM to choose the most likely token every time, ensuring it generates the exact same SQL query for the same question every run.
 
-**Why this pattern?**
-- ✅ Single database connection reused across all requests
-- ✅ Automatic session cleanup (finally block)
-- ✅ FastAPI's dependency injection manages the session lifecycle
-- ❌ Alternative: Open/close connection per request (slower, wasteful)
+### Q7: If your database grows to millions of deliveries, how would you optimize the scorecard generation?
+*Answer:* Dynamically aggregating millions of deliveries on every request will eventually slow down. To scale this, we could use **Materialized Views** or a **Cached Read-Model**. We would pre-calculate and store the final match scorecard JSON in a column on the `matches` table (e.g. `scorecard_json`) during the ingestion pipeline. Since match results are static and never change, this allows us to serve scorecards instantly using a single `SELECT` query, completely eliminating delivery aggregation during API calls.
 
-**How the `get_db()` injection works:**
+### Q8: What is the purpose of Pydantic schemas in this application, and how do they differ from SQLAlchemy models?
+*Answer:* This represents a clean **separation of concerns**:
+- **SQLAlchemy Models** define our database tables, constraints, types, and database-level relationships.
+- **Pydantic Schemas** define our API contracts (data validation and serialization models).
+For example, our `Match` table has 10 columns, but our API request may only require 3 fields. Pydantic handles request validation and formats the database models into clean JSON responses, ensuring database implementation details are kept separate from the public API.
+
+### Q9: How does the AI agent know how to construct correct queries for complex metrics like bowler wickets or batsman runs?
+*Answer:* We guide the agent using strict instructions in `AGENT_PROMPT_PREFIX` and `AGENT_SUFFIX`. We explicitly teach it the business rules of cricket statistics:
+- Batsman runs must sum `runs_batter` where `batter` matches the player's name.
+- Bowler wickets must only count deliveries where the dismissal type is a bowler wicket (`bowled`, `caught`, etc.), excluding non-bowler dismissals like run outs.
+Providing these rules directly in the system prompt prevents the LLM from writing incorrect queries.
+
+### Q10: How does the background seeding endpoint prevent API timeouts during large data loads?
+*Answer:* Standard API requests must return a response quickly to avoid client timeouts. Seeding a database can take several minutes.
+We solve this using FastAPI's built-in `BackgroundTasks` runner:
 ```python
-# In matches.py route
-@router.get("/matches/")
-def get_all_matches(db: Session = Depends(get_db)):  # FastAPI provides db here
-    matches = db.query(Match).all()
-    return matches
+@router.post("/stats/seed-database")
+def seed_database(background_tasks: BackgroundTasks):
+    background_tasks.add_task(load_match_data)
+    return {"status": "success", "message": "Database seeding triggered..."}
 ```
+FastAPI immediately returns a `200 OK` response to the client, and then runs the seeding function asynchronously in the background without blocking the main event loop.
 
----
+### Q11: Explain the purpose of `pyrightconfig.json` in the root of the project.
+*Answer:* `pyrightconfig.json` is the configuration file for **Pyright**, a fast static type checker for Python. It tells the type checker where our virtual environment is located (`"venv": "Backend/.venv"`) and defines search paths (`"extraPaths": ["./Backend"]`). This allows Pyright to resolve import paths correctly, providing real-time code completion, error detection, and type safety checks in our editor.
 
-### 3. **Models** - Database Schema (ORM)
+### Q12: How would you run automated tests for this backend, and how is the database isolated?
+*Answer:* We use **pytest** for testing. In `tests/conftest.py`, we define a fixture that creates a temporary SQLite file `test_cricket_ai.db` and runs `Base.metadata.create_all(bind=engine)` to build a clean schema for each test session. This ensures our production/development database is never affected by test writes, giving us safe and isolated testing.
 
-**What is ORM?**
-ORM = Object-Relational Mapping. Instead of writing raw SQL, you define Python classes that map to database tables.
+### Q13: What happens if the OpenAI API is down? How is the application affected?
+*Answer:* The `POST /api/chat/` route will catch the connection exception, print the error, and return an HTTP `500 Internal Server Error`. However, the rest of the application remains fully functional. The health check and REST endpoints (matches, scorecards, stats) do not rely on OpenAI and will continue to work normally.
 
-```python
-# models/match.py
-class Match(Base):
-    __tablename__ = "matches"
-    
-    id = Column(Integer, primary_key=True)
-    team_1 = Column(String(255))
-    team_2 = Column(String(255))
-    winner = Column(String(255))
-    start_date = Column(Date)
-```
+### Q14: How does the application handle stadium name variations (e.g., "Gaddafi Stadium" vs. "Gaddafi Stadium, Lahore")?
+*Answer:* We solve this using two techniques:
+1. **Fuzzy String Map**: We maintain a dictionary of common stadium aliases in `app/core/helpers.py` (`VENUE_ALIAS_MAP`) to resolve queries to their canonical database names.
+2. **Case-Insensitive SQL `LIKE`**: We instruct the AI agent to always query text columns using case-insensitive SQL matching (e.g., `WHERE venue LIKE '%Gaddafi%'`), ensuring matches succeed even with minor name variations.
 
-**Why ORM instead of raw SQL?**
-- ✅ Type safety (Python catches errors before DB)
-- ✅ Relationships are explicit (e.g., `match.deliveries`)
-- ✅ Easy migrations (change schema programmatically)
-- ❌ Raw SQL is faster for complex queries (but we rarely need that)
-
-**The Three Tables:**
-
-| Table | What It Stores | Why |
-|-------|----------------|-----|
-| **matches** | Match metadata (teams, date, venue, winner) | Core match info; few records |
-| **deliveries** | Ball-by-ball data (batter, bowler, runs, wickets) | Granular stats; many records (1000s per match) |
-| **players** | Player names & team | Could extend with more stats later |
-
----
-
-### 4. **Schemas** - Request/Response Validation
-
-```python
-# schemas/chat.py
-class ChatRequest(BaseModel):
-    query: str
-```
-
-**What it does:**
-- Defines expected structure of API requests
-- Pydantic validates & converts types automatically
-- Invalid requests are rejected with clear error messages
-
-**Why separate from models?**
-- Models = database tables
-- Schemas = API contracts
-- A request might need only 1 field, but the database has 10 fields
-- Decoupling lets you evolve the API independently of the schema
-
-**Example:**
-```python
-# Bad request (missing field)
-POST /api/chat
-{}
-# Response: {"detail": "query is required"}
-
-# Good request
-POST /api/chat
-{"query": "How many runs did Babar score?"}
-# Response: {"answer": "..."}
-```
-
----
-
-### 5. **Routes/Endpoints** - The API Surface
-
-#### **health.py** - Liveness Check
-```python
-@router.get("/")
-def health_check():
-    return {"status": "healthy", "service": "backend"}
-```
-- **Purpose**: Frontend/monitoring checks if backend is alive
-- **Why**: Kubernetes, load balancers, monitoring tools use this to detect failures
-
-#### **matches.py** - Match Data
-```python
-@router.get("/matches/")
-def get_all_matches(page: int = 1, per_page: int = 12, team: str = None, db: Session = Depends(get_db)):
-    query = db.query(Match)
-    if team:
-        query = query.filter((Match.team_1 == team) | (Match.team_2 == team))
-    matches = query.limit(per_page).offset((page - 1) * per_page).all()
-    return {"count": total, "matches": matches}
-```
-
-**Design decisions:**
-- ✅ Pagination (limit/offset) prevents huge responses
-- ✅ Filtering by team (allows frontend search)
-- ✅ Returns both total count and paginated results
-- ❌ Alternative: Return all matches (slow, memory-heavy)
-
-#### **chat.py** - AI Agent
-```python
-db = SQLDatabase.from_uri(settings.DATABASE_URL)
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-agent = create_sql_agent(llm, db, agent_type="openai-tools")
-response = agent.invoke({"input": request.query})
-```
-
-**How it works:**
-1. User sends: `{"query": "How many runs did Babar score?"}`
-2. LangChain creates an agent that can:
-   - Understand the question
-   - Generate SQL queries
-   - Execute them against the database
-   - Interpret results
-   - Return a human-readable answer
-3. The `AGENT_PROMPT_PREFIX` tells the AI what tables/columns exist
-
-**Why this design?**
-- ✅ AI agents are "reasoning engines" (not just completions)
-- ✅ OpenAI-tools can plan multi-step queries
-- ✅ Agents retry if a query fails
-- ❌ Alternative: Simple LLM call (would fail on complex questions)
-
-#### **players.py** - Player Comparison
-```python
-@router.get("/players/compare")
-def compare_players(player1: str, player2: str, db: Session = Depends(get_db)):
-    stats1 = compute_batting_stats(deliveries_for_player1)
-    stats2 = compute_batting_stats(deliveries_for_player2)
-    return {"player_1": stats1, "player_2": stats2}
-```
-
-**Why a dedicated endpoint?**
-- ✅ Structured data (always same format)
-- ✅ Frontend can display comparison side-by-side
-- ❌ Alternative: Ask AI agent (slower, less reliable)
-
----
-
-## Data Flow & Request Lifecycle
-
-### Scenario: Frontend asks "How many runs did Babar score?"
-
-```
-1. Frontend sends HTTP request
-   POST /api/chat
-   {"query": "How many runs did Babar score?"}
-
-2. FastAPI receives request in chat.py
-
-3. Pydantic validates: {"query": "..."}
-
-4. get_db() dependency provides a database session
-
-5. LangChain agent starts:
-   a) Reads AGENT_PROMPT_PREFIX (tells AI about schema)
-   b) Passes user query to ChatOpenAI (gpt-4o-mini)
-   c) OpenAI generates SQL: "SELECT SUM(runs_batter) FROM deliveries WHERE batter='Babar'"
-   d) LangChain executes SQL against database
-   e) Database returns: [{"sum": 2847}]
-   f) OpenAI interprets: "Babar scored 2,847 runs"
-
-6. Route returns response
-   {"answer": "Babar scored 2,847 runs"}
-
-7. Frontend displays in UI
-```
-
-### Why Each Step Matters
-
-| Step | Why |
-|------|-----|
-| Validation (Pydantic) | Catches bad input early; prevents SQL injection |
-| get_db() | Reuses connection; manages lifecycle |
-| AGENT_PROMPT_PREFIX | Constraints AI to available tables; improves accuracy |
-| Temperature=0 | Makes AI deterministic (always same answer) |
-| Error handling | If SQL fails, user sees error instead of crash |
-
----
-
-## Design Decisions & Why
-
-### Decision 1: SQLite vs PostgreSQL
-
-**We chose**: SQLite (for now)
-
-| Feature | SQLite | PostgreSQL |
-|---------|--------|-----------|
-| Setup | No server needed | Separate server |
-| File size | Small (single file) | Larger (but scalable) |
-| Concurrency | Limited | Excellent |
-| Use case | Development, small projects | Production, high load |
-
-**When to switch to PostgreSQL:**
-- Deployment is happening
-- Multiple users query simultaneously
-- Need complex indexing for 1M+ records
-
-**How to switch:**
-```python
-# .env file
-DATABASE_URL=postgresql://user:pass@localhost/cricket_ai
-# (everything else stays the same!)
-```
-
----
-
-### Decision 2: FastAPI + SQLAlchemy ORM
-
-**We chose**: FastAPI + SQLAlchemy ORM
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| **FastAPI + ORM** | Type safe, automatic docs, easy relationships | Slower than raw SQL |
-| **FastAPI + Raw SQL** | Fast, flexible | No validation, SQL injection risk |
-| **Django ORM** | Batteries included | Heavyweight, slower startup |
-| **Flask + SQLAlchemy** | Minimal | Requires more manual setup |
-
-**Decision rationale:**
-- Development speed > raw speed (cricket queries are not high-frequency)
-- Type safety prevents bugs
-- Auto-documentation helps frontend team
-
----
-
-### Decision 3: LangChain Agent Architecture
-
-**We chose**: LangChain SQL Agent
-
-```python
-agent = create_sql_agent(
-    llm=ChatOpenAI(model="gpt-4o-mini", temperature=0),
-    db=db,
-    agent_type="openai-tools"
-)
-```
-
-**What an agent does:**
-- Can call multiple tools (SQL, web search, calculator)
-- Plans multi-step sequences
-- Retries if a step fails
-- Interprets results
-
-**Alternative architectures:**
-
-| Approach | How It Works | Pros | Cons |
-|----------|--------------|------|------|
-| **Agent (chosen)** | AI plans & executes SQL | Flexible, self-correcting | Slower (multiple LLM calls) |
-| **Prompt-based** | AI generates SQL in one shot | Fast | Fails on complex questions |
-| **Few-shot** | Show examples then ask AI | Good accuracy | Requires hand-crafted examples |
-| **RAG** | Retrieve docs then answer | Factual, grounded | Need document database |
-
-**When to switch:**
-- If response time becomes critical → use prompt-based
-- If data is very large → add RAG layer
-- If need autonomous tool selection → use LangGraph
-
----
-
-### Decision 4: LLM Model Choice (gpt-4o-mini)
-
-**We chose**: `gpt-4o-mini`
-
-| Model | Cost | Speed | Quality |
-|-------|------|-------|---------|
-| **gpt-4o-mini** | $0.15 per 1M tokens | Fast | Good |
-| gpt-4 | $0.03 per 1K input | Slow | Best |
-| gpt-3.5-turbo | $0.50 per 1M tokens | Fast | Okay |
-
-**Decision rationale:**
-- Good enough for cricket questions (not ambiguous domain)
-- 10x cheaper than gpt-4
-- Fast enough for interactive chat
-
-**When to upgrade:**
-- If accuracy drops below acceptable threshold
-- If more complex reasoning needed (V4 with LangGraph)
-
----
-
-## Alternatives We Considered
-
-### Alternative 1: No AI Agent
-
-**What it would look like:**
-```python
-@router.get("/players/{name}/stats")
-def get_player_stats(name: str, db: Session = Depends(get_db)):
-    stats = db.query(Delivery).filter(Delivery.batter == name).all()
-    return compute_stats(stats)
-```
-
-**Why we didn't:**
-- ❌ Frontend has to know exact endpoints
-- ❌ Can't ask natural language questions
-- ❌ User experience is technical, not conversational
-- ✅ But it's faster and simpler
-
-**When you'd use this:**
-- Highly structured use cases (e.g., internal dashboards)
-- Performance is critical
-- Limited AI budget
-
----
-
-### Alternative 2: Custom SQL Generator
-
-```python
-# Instead of using LangChain agent
-sql = generate_sql_from_query(user_query)  # Custom code
-result = db.execute(sql)
-```
-
-**Why we didn't:**
-- ❌ Need to hand-code SQL generator
-- ❌ Fails on questions we didn't anticipate
-- ❌ More maintenance burden
-- ✅ But completely customizable
-
----
-
-### Alternative 3: Vector Database (ChromaDB)
-
-```python
-# Load all match reports into embeddings
-vectors = encode_match_reports()
-store_in_chromadb(vectors)
-
-# When user asks, search vectors + query database
-relevant_docs = chromadb.query(user_query)
-```
-
-**Why we didn't (yet):**
-- ❌ Requires match reports (we only have data)
-- ❌ More complex setup
-- ✅ Would enable "Why did Babar get out?" questions
-
-**When to add (V3):**
-- Have match reports/commentary
-- Need contextual answers beyond statistics
-
----
-
-## How to Make Changes
-
-### Common Changes & How To Do Them
-
-#### **1. Add a New Endpoint**
-
-**Goal**: Add `GET /api/teams` to list all teams
-
-**Steps:**
-1. Create new file `app/api/routes/teams.py`:
-```python
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import distinct
-from app.core.database import get_db
-from app.models.match import Match
-
-router = APIRouter(prefix="/teams", tags=["Teams"])
-
-@router.get("/")
-def get_all_teams(db: Session = Depends(get_db)):
-    teams = db.query(distinct(Match.team_1)).all()
-    return {"teams": [t[0] for t in teams]}
-```
-
-2. Register in `main.py`:
-```python
-from app.api.routes.teams import router as teams_router
-app.include_router(teams_router, prefix="/api")
-```
-
-3. Test:
-```bash
-curl http://localhost:8000/api/teams
-```
-
----
-
-#### **2. Change Database Schema (Add Column)**
-
-**Goal**: Add `toss_winner` column to Match table
-
-**Steps:**
-1. Edit `models/match.py`:
-```python
-class Match(Base):
-    __tablename__ = "matches"
-    id = Column(Integer, primary_key=True)
-    toss_winner = Column(String(255), nullable=True)  # NEW
-```
-
-2. Update data loading script to populate `toss_winner`
-
-3. Update API routes that return matches (they auto-include new field)
-
-**Note:** SQLAlchemy uses Flask-Migrate or Alembic for schema versions in production. For dev, you can delete `cricket_ai.db` and restart.
-
----
-
-#### **3. Modify AI Agent Prompt**
-
-**Goal**: Make AI prioritize recent matches
-
-**Steps:**
-Edit `app/api/routes/chat.py`:
-```python
-AGENT_PROMPT_PREFIX = """
-...
-When answering questions about player performance, prioritize matches
-from the last 2 years (start_date > 2024-01-01).
-...
-"""
-```
-
----
-
-#### **4. Add New Test**
-
-**Goal**: Test that `/api/players/compare` works
-
-**Steps:**
-Edit `tests/test_api.py`:
-```python
-def test_player_compare_works():
-    response = client.get("/api/players/compare?player1=Babar&player2=Virat")
-    assert response.status_code == 200
-    data = response.json()
-    assert "player_1" in data
-    assert "player_2" in data
-    assert "batting" in data["player_1"]
-```
-
-Run: `pytest -q`
-
----
-
-#### **5. Switch Database (SQLite → PostgreSQL)**
-
-**Steps:**
-1. Install PostgreSQL locally or on a server
-2. Create database: `createdb cricket_ai`
-3. Update `.env`:
-```
-DATABASE_URL=postgresql://user:password@localhost/cricket_ai
-```
-4. Install Python driver: `pip install psycopg2-binary`
-5. Restart backend—everything works!
-
----
-
-## Interview Questions You Should Be Able to Answer
-
-1. **"Why FastAPI over Flask?"**
-   - Answer: Type safety, async support, automatic documentation, better for integrating with LLMs
-
-2. **"How does the AI agent avoid SQL injection?"**
-   - Answer: SQLAlchemy parameterizes queries; LangChain's SQL agent uses verified dialects
-
-3. **"What would break if someone deletes cricket_ai.db?"**
-   - Answer: All data lost; database recreates on next startup if using SQLAlchemy's `Base.metadata.create_all()`
-
-4. **"How does pagination work in `/api/matches`?"**
-   - Answer: limit=per_page records, offset=(page-1)*per_page. Frontend requests page 1, 2, 3, etc.
-
-5. **"What happens if OpenAI API is down?"**
-   - Answer: Chat endpoint fails with 500 error. Health check still works. Other endpoints unaffected.
-
-6. **"Why use an ORM instead of raw SQL?"**
-   - Answer: Type safety, less boilerplate, auto-validation, easier schema changes
-
-7. **"What is the purpose of get_db() in Depends(get_db)?"**
-   - Answer: FastAPI dependency injection. Provides a fresh DB session; closes it after request completes.
-
-8. **"Why temperature=0 for the LLM?"**
-   - Answer: Deterministic output. Same query always gives same answer (no randomness).
-
-9. **"How would you add vector search (RAG)?"**
-   - Answer: Load match reports into ChromaDB, query vectors for context, pass to AI agent
-
-10. **"What would happen if a user sends `" OR "1"="1` as a query?"**
-    - Answer: LangChain handles it safely; Pydantic validates it's a string; SQL is parameterized
-
----
-
-## Summary Table: Core Components
-
-| Component | File | Purpose | Key Design |
-|-----------|------|---------|------------|
-| **Settings** | `config.py` | Environment config | Centralized, `.env`-based |
-| **Database** | `database.py` | Connection pool | SQLAlchemy engine + session factory |
-| **Models** | `models/*.py` | ORM schema | Define tables as Python classes |
-| **Schemas** | `schemas/*.py` | Request validation | Pydantic models for API contracts |
-| **Health** | `routes/health.py` | Liveness check | Simple status endpoint |
-| **Matches** | `routes/matches.py` | Match CRUD | Pagination + filtering |
-| **Chat** | `routes/chat.py` | AI agent | LangChain SQL agent + OpenAI |
-| **Players** | `routes/players.py` | Player stats | Dedicated comparison endpoint |
-
----
-
-This is your interview-level explanation. Save this document and reference it when making changes!
+### Q15: What is the role of `PYTHONPATH=./Backend` in the `.env` file?
+*Answer:* It tells Python to include the `Backend/` folder in its list of module search directories. This allows scripts (like our data pipeline or testing suite) to run from any folder while using clean absolute imports (e.g., `from app.models.match import Match`) without throwing module import errors.

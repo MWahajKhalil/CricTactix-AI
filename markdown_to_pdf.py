@@ -8,9 +8,10 @@ from reportlab.lib import colors
 
 
 class MarkdownToPDF:
-    def __init__(self, markdown_file, pdf_file):
+    def __init__(self, markdown_file, pdf_file, title=None):
         self.markdown_file = markdown_file
         self.pdf_file = pdf_file
+        self.title = title or "Markdown to PDF Document"
         self.styles = self._create_styles()
         self.elements = []
         self.in_code_block = False
@@ -110,27 +111,36 @@ class MarkdownToPDF:
         return text
     
     def _convert_inline_formatting(self, text):
-        """Convert inline markdown formatting to reportlab XML tags"""
+        """Convert inline markdown formatting to reportlab XML tags using placeholder shielding"""
         text = self._escape_special_chars(text)
         
-        # Convert **bold** to <b>bold</b>
-        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-        
-        # Convert __bold__ to <b>bold</b>
-        text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
-        
-        # Convert *italic* to <i>italic</i> (but not **bold**)
-        text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
-        
-        # Convert _italic_ to <i>italic</i> (but not __bold__)
-        text = re.sub(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)', r'<i>\1</i>', text)
-        
-        # Convert `code` to <font color="#d63384"><b>code</b></font>
-        text = re.sub(r'`([^`]+)`', r'<font color="#d63384"><b>\1</b></font>', text)
-        
-        # Convert [link](url) to link text (keep as plain text but preserve formatting)
+        # 1. Convert [link](url) to <u>link text</u> first to discard URL and keep link text
         text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<u>\1</u>', text)
         
+        # 2. Extract and shield inline `code` blocks
+        code_placeholders = []
+        def shield_code(match):
+            code_content = match.group(1)
+            # The code content shouldn't be processed for bold/italic, so it's safe inside placeholder
+            formatted_code = f'<font color="#d63384"><b>{code_content}</b></font>'
+            placeholder = f'___CODE_PLACEHOLDER_{len(code_placeholders)}___'
+            code_placeholders.append((placeholder, formatted_code))
+            return placeholder
+        
+        text = re.sub(r'`([^`]+)`', shield_code, text)
+        
+        # 3. Apply **bold** and __bold__ formatting with flanking rules
+        text = re.sub(r'(?<!\w)\*\*(?!\s)(.+?)(?<!\s)\*\*(?!\w)', r'<b>\1</b>', text)
+        text = re.sub(r'(?<!\w)__(?!\s)(.+?)(?<!\s)__(?!\w)', r'<b>\1</b>', text)
+        
+        # 4. Apply *italic* and _italic_ formatting with flanking rules
+        text = re.sub(r'(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)', r'<i>\1</i>', text)
+        text = re.sub(r'(?<!\w)_(?!\s)(.+?)(?<!\s)_(?!\w)', r'<i>\1</i>', text)
+        
+        # 5. Restore the shielded code blocks
+        for placeholder, formatted_code in code_placeholders:
+            text = text.replace(placeholder, formatted_code)
+            
         return text
     
     def _process_line(self, line):
@@ -226,7 +236,7 @@ class MarkdownToPDF:
             leftMargin=0.75 * inch,
             topMargin=0.75 * inch,
             bottomMargin=0.75 * inch,
-            title="Backend Deep Dive"
+            title=self.title
         )
         
         # Build PDF
@@ -235,11 +245,29 @@ class MarkdownToPDF:
         return True
 
 
+import os
+import sys
+
+
 def main():
-    markdown_file = "/Users/mwahajkhalil/Learnings/ai-cricket-tactical-analyst/BACKEND_DEEP_DIVE.md"
-    pdf_file = "/Users/mwahajkhalil/Learnings/ai-cricket-tactical-analyst/BACKEND_DEEP_DIVE.pdf"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     
-    converter = MarkdownToPDF(markdown_file, pdf_file)
+    if len(sys.argv) > 2:
+        markdown_file = sys.argv[1]
+        pdf_file = sys.argv[2]
+    else:
+        markdown_file = os.path.join(base_dir, "BACKEND_DEEP_DIVE.md")
+        pdf_file = os.path.join(base_dir, "BACKEND_DEEP_DIVE.pdf")
+        
+    if not os.path.isabs(markdown_file):
+        markdown_file = os.path.join(base_dir, markdown_file)
+    if not os.path.isabs(pdf_file):
+        pdf_file = os.path.join(base_dir, pdf_file)
+    
+    # Make sure we use a clean title for custom PDFs
+    title = os.path.splitext(os.path.basename(pdf_file))[0].replace('_', ' ').title()
+    
+    converter = MarkdownToPDF(markdown_file, pdf_file, title=title)
     converter.convert()
 
 
