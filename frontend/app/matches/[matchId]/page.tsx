@@ -30,21 +30,6 @@ type Innings = {
   overs: string;
 };
 
-type MatchDetail = {
-  id: number;
-  cricsheet_id: string;
-  date: string;
-  team_1: string;
-  team_2: string;
-  winner: string;
-  match_type: string;
-  venue: string;
-  city: string;
-  scorecard?: {
-    innings: Innings[];
-  };
-};
-
 type MatchDetailPageProps = {
   params: Promise<{
     matchId: string;
@@ -57,13 +42,15 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
 
   if (!match) {
     return (
-      <div className="min-h-screen bg-zinc-950 py-16 px-6 text-white sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/10 bg-zinc-900/90 p-10 text-center shadow-2xl shadow-black/40">
-          <p className="text-sm uppercase tracking-[0.28em] text-slate-400">Match not found</p>
-          <h1 className="mt-4 text-3xl font-semibold text-white">Unable to load match details</h1>
-          <p className="mt-4 text-sm leading-7 text-zinc-400">This match may not exist in the current dataset or the backend could not return the record.</p>
-          <Link href="/matches" className="mt-8 inline-flex rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500">
-            Back to Matches
+      <div className="min-h-screen py-16 px-6 text-white sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-3xl glass-sports-card p-10 text-center">
+          <p className="font-display text-xs uppercase tracking-widest text-zinc-500">Telemetry Error</p>
+          <h1 className="mt-4 font-display text-2xl font-bold text-white">Match Details Unavailable</h1>
+          <p className="mt-4 text-xs sm:text-sm text-zinc-400">
+            This match is either missing from the SQLite database or the backend service is currently offline.
+          </p>
+          <Link href="/matches" className="mt-8 inline-flex rounded-xl bg-accent-green px-5 py-3 text-xs font-bold text-zinc-950 hover:bg-emerald-400 transition">
+            Back to Match Archive
           </Link>
         </div>
       </div>
@@ -71,173 +58,188 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),transparent_20%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.14),transparent_25%)] py-16 px-6 text-white sm:px-8 lg:px-12">
-      <div className="mx-auto max-w-5xl rounded-[2rem] border border-white/10 bg-zinc-950/90 p-8 shadow-2xl shadow-black/30">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="py-12 px-6 sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-5xl flex flex-col gap-8">
+        
+        {/* HEADER BLOCK */}
+        <div className="glass-sports-card p-6 md:p-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-sky-300">Match detail</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white">{match.team_1} vs {match.team_2}</h1>
-            <p className="mt-2 text-sm leading-7 text-zinc-400">{match.cricsheet_id} • {match.date}</p>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-accent-cyan px-2.5 py-0.5 bg-accent-cyan/10 rounded">
+              Scorecard Analysis
+            </span>
+            <h1 className="mt-3 font-display text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              {match.team_1} <span className="text-zinc-600 font-normal">vs</span> {match.team_2}
+            </h1>
+            <p className="mt-2 text-xs text-zinc-500 font-medium">
+              ID: {match.cricsheet_id} &bull; Match Date: {match.date}
+            </p>
           </div>
-          <Link href="/matches" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-slate-100">
+          <Link href="/matches" className="inline-flex items-center justify-center rounded-xl bg-zinc-950 border border-zinc-800 px-5 py-3 text-xs font-bold text-zinc-300 hover:bg-zinc-900 transition">
             Back to Matches
           </Link>
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <div className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
-            <p className="text-sm uppercase tracking-[0.32em] text-sky-300">Match summary</p>
-            <div className="mt-6 space-y-4 text-sm text-zinc-300">
-              <div className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3">
-                <span>Type</span>
-                <span className="font-semibold text-white">{match.match_type || "N/A"}</span>
+        {/* DETAILS SUMMARIES */}
+        <div className="grid gap-6 md:grid-cols-3">
+          
+          <div className="glass-sports-card p-5 md:col-span-2">
+            <p className="font-display text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-900/60 pb-2.5 mb-4">Venue & City</p>
+            <div className="grid gap-3 sm:grid-cols-3 text-xs">
+              <div className="rounded-xl bg-zinc-950/60 border border-zinc-900/50 p-4">
+                <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">City</span>
+                <span className="mt-2 font-display text-sm font-bold text-white block">{match.city || "Unknown"}</span>
               </div>
-              <div className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3">
-                <span>Venue</span>
-                <span className="font-semibold text-white">{match.venue || "Unknown"}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3">
-                <span>City</span>
-                <span className="font-semibold text-white">{match.city || "Unknown"}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-3xl bg-zinc-950/80 px-4 py-3">
-                <span>Winner</span>
-                <span className="font-semibold text-emerald-300">{match.winner || "TBD"}</span>
+              <div className="rounded-xl bg-zinc-950/60 border border-zinc-900/50 p-4 sm:col-span-2">
+                <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Venue</span>
+                <span className="mt-2 font-display text-sm font-bold text-white block truncate" title={match.venue}>{match.venue || "Unknown"}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
-            <p className="text-sm uppercase tracking-[0.32em] text-sky-300">Teams</p>
-            <div className="mt-6 space-y-4 text-sm text-zinc-300">
-              <div className="rounded-3xl bg-zinc-950/80 px-4 py-4">
-                <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Team 1</p>
-                <p className="mt-2 text-lg font-semibold text-white">{match.team_1}</p>
-              </div>
-              <div className="rounded-3xl bg-zinc-950/80 px-4 py-4">
-                <p className="text-xs uppercase tracking-[0.26em] text-slate-500">Team 2</p>
-                <p className="mt-2 text-lg font-semibold text-white">{match.team_2}</p>
-              </div>
+          <div className="glass-sports-card p-5 border-l-4 border-l-accent-green">
+            <p className="font-display text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-900/60 pb-2.5 mb-4">Result Summary</p>
+            <div className="rounded-xl bg-zinc-950/60 border border-zinc-900/50 p-4">
+              <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Winner</span>
+              <span className="mt-2 font-display text-lg font-bold text-accent-green neon-glow-green block truncate" title={match.winner}>
+                {match.winner || "TBD"}
+              </span>
             </div>
           </div>
+
         </div>
 
-        <div className="mt-10 rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
-          <h2 className="text-lg font-semibold text-white">Match overview</h2>
-          <div className="mt-6 grid gap-4 text-sm text-zinc-300 md:grid-cols-2">
-            <div className="rounded-3xl bg-zinc-950/80 p-4">
-              <p className="font-semibold text-white">Identifier</p>
-              <p className="mt-2 text-zinc-400">{match.cricsheet_id}</p>
-            </div>
-            <div className="rounded-3xl bg-zinc-950/80 p-4">
-              <p className="font-semibold text-white">Date</p>
-              <p className="mt-2 text-zinc-400">{match.date}</p>
-            </div>
-          </div>
-        </div>
-
+        {/* SCORECARD INNINGS BLOCKS */}
         {match.scorecard ? (
-          <div className="mt-10 space-y-8">
+          <div className="space-y-10">
             {match.scorecard.innings.map((innings: Innings) => (
-              <section key={innings.innings_number} className="rounded-[2rem] border border-white/10 bg-zinc-900/80 p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <section key={innings.innings_number} className="glass-sports-card p-6 relative overflow-hidden">
+                
+                {/* INNINGS HEADER METRICS */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-900 pb-5 mb-6">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.28em] text-sky-300">Innings {innings.innings_number}</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">{innings.batting_team} batting</h2>
-                    <p className="mt-2 text-sm text-zinc-400">vs {innings.bowling_team}</p>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent-cyan px-2.5 py-0.5 bg-accent-cyan/10 rounded">
+                      Innings {innings.innings_number}
+                    </span>
+                    <h2 className="mt-2 font-display text-2xl font-bold text-white">{innings.batting_team}</h2>
+                    <p className="text-xs text-zinc-500 mt-1">Bowling Side: {innings.bowling_team}</p>
                   </div>
-                  <div className="grid w-full gap-2 rounded-3xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-zinc-300 sm:w-auto">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Score</span>
-                      <span className="font-semibold text-white">{innings.total_runs}/{innings.wickets}</span>
+                  
+                  {/* Gigantic Scoreboard Metrics */}
+                  <div className="flex items-center gap-4 bg-zinc-950/90 border border-zinc-900 px-5 py-3.5 rounded-xl font-display">
+                    <div className="text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Innings Runs</p>
+                      <p className="text-2xl font-extrabold text-white">{innings.total_runs}/{innings.wickets}</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Overs</span>
-                      <span className="font-semibold text-white">{innings.overs}</span>
+                    <div className="h-8 w-px bg-zinc-900" />
+                    <div className="text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Overs</p>
+                      <p className="text-2xl font-extrabold text-accent-cyan">{innings.overs}</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Extras</span>
-                      <span className="font-semibold text-white">{innings.extras}</span>
+                    <div className="h-8 w-px bg-zinc-900" />
+                    <div className="text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Extras</p>
+                      <p className="text-lg font-bold text-accent-yellow">{innings.extras}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-8 grid gap-6 lg:grid-cols-2">
-                  <div className="rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-5">
-                    <div className="flex items-center justify-between">
+                <div className="grid gap-6 lg:grid-cols-2">
+                  
+                  {/* BATTING CARD */}
+                  <div className="rounded-xl border border-zinc-900/60 bg-zinc-950/30 p-4">
+                    <div className="flex items-center justify-between border-b border-zinc-900 pb-3.5">
                       <div>
-                        <h3 className="text-base font-semibold text-white">Batting card</h3>
-                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{innings.batting_team}</p>
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider">Batting Roster</h3>
+                        <p className="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider mt-0.5">{innings.batting_team}</p>
                       </div>
-                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">R / B / SR</span>
+                      <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold">R &bull; B &bull; SR</span>
                     </div>
+                    
                     <div className="mt-4 overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-800 text-sm text-left text-zinc-200">
+                      <table className="min-w-full divide-y divide-zinc-900 text-xs text-left text-zinc-300">
                         <thead>
-                          <tr>
-                            <th className="px-4 py-3">Batter</th>
-                            <th className="px-4 py-3">R</th>
-                            <th className="px-4 py-3">B</th>
-                            <th className="px-4 py-3">SR</th>
+                          <tr className="text-zinc-500">
+                            <th className="pb-3 font-semibold">Batter</th>
+                            <th className="pb-3 text-right font-semibold">Runs</th>
+                            <th className="pb-3 text-right font-semibold">Balls</th>
+                            <th className="pb-3 text-right font-semibold">SR</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800">
-                          {innings.batting.map((bat: BattingStat) => (
-                            <tr key={`${innings.innings_number}-${bat.player}`} className="hover:bg-zinc-950/80">
-                              <td className="px-4 py-3">{bat.player}</td>
-                              <td className="px-4 py-3 font-semibold text-white">{bat.runs}</td>
-                              <td className="px-4 py-3">{bat.balls}</td>
-                              <td className="px-4 py-3">{bat.strike_rate.toFixed(1)}</td>
-                            </tr>
-                          ))}
+                        <tbody className="divide-y divide-zinc-900/60">
+                          {innings.batting.map((bat: BattingStat) => {
+                            const isHighSR = bat.strike_rate >= 160 && bat.balls > 5;
+                            const isHighScore = bat.runs >= 40;
+                            return (
+                              <tr key={`${innings.innings_number}-${bat.player}`} className="hover:bg-zinc-950/40">
+                                <td className="py-2.5 font-medium text-white">{bat.player}</td>
+                                <td className={`py-2.5 text-right font-bold ${isHighScore ? "text-accent-yellow neon-glow-yellow" : ""}`}>{bat.runs}</td>
+                                <td className="py-2.5 text-right text-zinc-400">{bat.balls}</td>
+                                <td className={`py-2.5 text-right font-semibold ${isHighSR ? "text-accent-green neon-glow-green" : "text-zinc-300"}`}>
+                                  {bat.strike_rate.toFixed(1)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-white/10 bg-zinc-950/80 p-5">
-                    <div className="flex items-center justify-between">
+                  {/* BOWLING CARD */}
+                  <div className="rounded-xl border border-zinc-900/60 bg-zinc-950/30 p-4">
+                    <div className="flex items-center justify-between border-b border-zinc-900 pb-3.5">
                       <div>
-                        <h3 className="text-base font-semibold text-white">Opponent bowling</h3>
-                        <p className="text-xs uppercase tracking-[0.24em] text-slate-500">{innings.bowling_team}</p>
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider">Bowling Arsenal</h3>
+                        <p className="text-[9px] text-zinc-500 font-semibold uppercase tracking-wider mt-0.5">{innings.bowling_team}</p>
                       </div>
-                      <span className="text-xs uppercase tracking-[0.24em] text-slate-400">O / R / W / Econ</span>
+                      <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold">O &bull; R &bull; W &bull; Econ</span>
                     </div>
+
                     <div className="mt-4 overflow-x-auto">
-                      <table className="min-w-full divide-y divide-zinc-800 text-sm text-left text-zinc-200">
+                      <table className="min-w-full divide-y divide-zinc-900 text-xs text-left text-zinc-300">
                         <thead>
-                          <tr>
-                            <th className="px-4 py-3">Bowler</th>
-                            <th className="px-4 py-3">O</th>
-                            <th className="px-4 py-3">R</th>
-                            <th className="px-4 py-3">W</th>
-                            <th className="px-4 py-3">Econ</th>
+                          <tr className="text-zinc-500">
+                            <th className="pb-3 font-semibold">Bowler</th>
+                            <th className="pb-3 text-right font-semibold">Overs</th>
+                            <th className="pb-3 text-right font-semibold">Runs</th>
+                            <th className="pb-3 text-right font-semibold">Wkts</th>
+                            <th className="pb-3 text-right font-semibold">Econ</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-800">
-                          {innings.bowling.map((bowl: BowlingStat) => (
-                            <tr key={`${innings.innings_number}-${bowl.player}`} className="hover:bg-zinc-950/80">
-                              <td className="px-4 py-3">{bowl.player}</td>
-                              <td className="px-4 py-3">{bowl.overs}</td>
-                              <td className="px-4 py-3 font-semibold text-white">{bowl.runs_conceded}</td>
-                              <td className="px-4 py-3">{bowl.wickets}</td>
-                              <td className="px-4 py-3">{bowl.economy.toFixed(2)}</td>
-                            </tr>
-                          ))}
+                        <tbody className="divide-y divide-zinc-900/60">
+                          {innings.bowling.map((bowl: BowlingStat) => {
+                            const isLowEcon = bowl.economy <= 6.5 && bowl.overs !== "0.0";
+                            const isHighWkts = bowl.wickets >= 3;
+                            return (
+                              <tr key={`${innings.innings_number}-${bowl.player}`} className="hover:bg-zinc-950/40">
+                                <td className="py-2.5 font-medium text-white">{bowl.player}</td>
+                                <td className="py-2.5 text-right text-zinc-400">{bowl.overs}</td>
+                                <td className="py-2.5 text-right text-zinc-400">{bowl.runs_conceded}</td>
+                                <td className={`py-2.5 text-right font-bold ${isHighWkts ? "text-accent-yellow neon-glow-yellow" : "text-white"}`}>
+                                  {bowl.wickets}
+                                </td>
+                                <td className={`py-2.5 text-right font-semibold ${isLowEcon ? "text-accent-green neon-glow-green" : "text-zinc-300"}`}>
+                                  {bowl.economy.toFixed(2)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
                   </div>
+
                 </div>
               </section>
             ))}
           </div>
         ) : (
-          <div className="mt-10 rounded-[2rem] border border-dashed border-white/10 bg-zinc-900/80 p-10 text-center text-zinc-300">
-            <p className="text-lg font-semibold text-white">Scorecard information is not available</p>
-            <p className="mt-3 text-sm text-zinc-400">This match does not have ball-by-ball scorecard data in the current dataset.</p>
+          <div className="glass-sports-card p-10 text-center">
+            <p className="font-display text-lg font-bold text-white">Ball Ingestion Data Unavailable</p>
+            <p className="mt-2 text-xs text-zinc-500">This match is loaded as a result-only card and lacks delivery-level data in SQLite.</p>
           </div>
         )}
+
       </div>
     </div>
   );
