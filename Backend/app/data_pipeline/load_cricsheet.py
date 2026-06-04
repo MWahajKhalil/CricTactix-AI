@@ -14,6 +14,7 @@ from app.models.player import Player
 from app.models.team import Team
 from app.models.team_season import TeamSeason
 from app.models.team_season_player import TeamSeasonPlayer
+from app.core.helpers import normalize_venue_name
 
 def get_phase(over: int, match_type: str) -> str:
     if match_type and "T20" in match_type.upper():
@@ -122,7 +123,7 @@ def load_match_data():
                 new_match = Match(
                     cricsheet_match_id=cricsheet_id,
                     match_type=match_type,
-                    venue=info.get("venue", "Unknown"),
+                    venue=normalize_venue_name(info.get("venue", "Unknown")),
                     city=info.get("city", "Unknown"),
                     start_date=match_date,
                     team_1=team_1,

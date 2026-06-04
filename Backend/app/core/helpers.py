@@ -40,3 +40,26 @@ def normalize_alias_key(value: Optional[str]) -> str:
 def alias_values_for_term(value: Optional[str], alias_map: dict[str, list[str]]) -> list[str]:
     normalized = normalize_alias_key(value)
     return alias_map.get(normalized, [])
+
+def normalize_venue_name(venue: Optional[str]) -> str:
+    if not venue:
+        return "Unknown"
+    v = venue.strip()
+    v_lower = v.lower()
+    
+    if "gaddafi" in v_lower:
+        return "Gaddafi Stadium, Lahore"
+    if "national stadium" in v_lower:
+        return "National Stadium, Karachi"
+    if "sheikh zayed" in v_lower:
+        return "Sheikh Zayed Stadium, Abu Dhabi"
+    if "multan" in v_lower:
+        return "Multan Cricket Stadium"
+    if "rawalpindi" in v_lower:
+        return "Rawalpindi Cricket Stadium"
+    if "dubai" in v_lower:
+        return "Dubai International Cricket Stadium"
+    if "sharjah" in v_lower:
+        return "Sharjah Cricket Stadium"
+        
+    return v

@@ -40,191 +40,188 @@ export default async function DashboardPage() {
   
   const topWinners = (topWinnerResponse.top_winners || []) as WinnerItem[];
   const topVenues = (topVenueResponse.top_venues || []) as TopVenueItem[];
-  const leadingVenue = topVenues[0];
 
-  // Helper to find max wins to compute progress percentages
+  // Compute maximum values for progress widths
   const maxWins = topWinners.length > 0 ? Math.max(...topWinners.map(w => w.wins)) : 1;
   const maxMatchesVenue = topVenues.length > 0 ? Math.max(...topVenues.map(v => v.matches)) : 1;
   const maxTeamAppearances = topTeams.length > 0 ? Math.max(...topTeams.map(([, c]) => c)) : 1;
 
   return (
     <div className="relative overflow-hidden py-12">
-      {/* Decorative radial glows */}
-      <div className="absolute top-1/4 left-10 w-[300px] h-[300px] bg-accent-green/5 rounded-full blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-10 w-[350px] h-[350px] bg-accent-cyan/5 rounded-full blur-[90px] pointer-events-none" />
-
       <div className="mx-auto max-w-6xl px-6 sm:px-8 lg:px-12">
         <div className="flex flex-col gap-8">
           
-          {/* HEADER SECTION */}
-          <div className="glass-sports-card p-6 md:p-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          {/* PREMIUM BANNER HEADER */}
+          <div className="premium-sports-card p-6 md:p-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="font-display text-xs uppercase tracking-widest text-accent-green">Analytics Console</p>
-              <h1 className="mt-2 font-display text-3xl md:text-4xl font-bold text-white tracking-tight">Tournament Snapshot</h1>
-              <p className="mt-2 max-w-2xl text-xs sm:text-sm text-zinc-400">
-                Aggregated insights compiled from the loaded Cricsheet match deliveries database.
-              </p>
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest text-zinc-500 uppercase">
+                <span className="h-1.5 w-1.5 rounded-full bg-turf-emerald" />
+                Tournament Statistics
+              </span>
+              <h1 className="sports-heading text-2xl md:text-3xl font-bold text-white mt-1">Analytics Dashboard</h1>
+              <p className="text-xs text-zinc-400 font-mono mt-1">Data Index: SQLite &bull; PSL_T20</p>
             </div>
-            <Link href="/matches" className="inline-flex items-center justify-center rounded-xl bg-accent-green px-5 py-3 text-xs font-bold text-zinc-950 hover:bg-emerald-400 transition shadow-md shadow-accent-green/20">
-              Browse Match Cards
+            <Link href="/matches" className="inline-flex items-center justify-center rounded bg-turf-emerald px-4 py-2.5 text-xs font-bold text-zinc-950 hover:bg-emerald-400 transition">
+              Browse Matches
             </Link>
           </div>
 
-          {/* METRIC SCOREBOARDS */}
+          {/* TELEMETRY METRIC WIDGETS */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="glass-sports-card p-6 border-l-4 border-l-accent-green">
-              <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Total Matches Loaded</p>
+            
+            <div className="premium-sports-card p-6 border-l-2 border-l-turf-emerald">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">Matches Loaded</p>
               <p className="mt-4 font-display text-4xl font-extrabold text-white tracking-tight">{count}</p>
-              <div className="mt-2 h-1 w-12 bg-accent-green rounded-full" />
+              <span className="mt-2 inline-block text-[9px] font-mono text-zinc-600">DB Cumulative</span>
             </div>
 
-            <div className="glass-sports-card p-6 border-l-4 border-l-accent-cyan">
-              <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Teams Represented</p>
+            <div className="premium-sports-card p-6 border-l-2 border-l-accent-cyan">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">Franchises Active</p>
               <p className="mt-4 font-display text-4xl font-extrabold text-white tracking-tight">{Object.keys(teamCounts).length}</p>
-              <div className="mt-2 h-1 w-12 bg-accent-cyan rounded-full" />
+              <span className="mt-2 inline-block text-[9px] font-mono text-zinc-600">Represented in Matches</span>
             </div>
 
-            <div className="glass-sports-card p-6 border-l-4 border-l-accent-yellow">
-              <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Top Match Venue</p>
-              <p className="mt-4 font-display text-xl font-bold text-white truncate leading-tight" title={leadingVenue?.venue || "N/A"}>
-                {leadingVenue?.venue || "N/A"}
+            <div className="premium-sports-card p-6 border-l-2 border-l-metric-amber">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">Primary Match Venue</p>
+              <p className="mt-4 font-display text-base font-bold text-white truncate leading-tight uppercase" title={topVenues[0]?.venue}>
+                {topVenues[0]?.venue || "N/A"}
               </p>
-              <p className="mt-2 text-xs text-accent-yellow font-semibold">{leadingVenue?.matches || 0} matches</p>
+              <span className="mt-2 inline-block text-[10px] font-mono font-bold text-metric-amber">
+                {topVenues[0]?.matches || 0} Matches Played
+              </span>
             </div>
+
           </div>
 
-          {/* DETAILED STATISTICS TABLES */}
+          {/* LEADERBOARDS GRID */}
           <div className="grid gap-6 xl:grid-cols-3">
             
-            {/* TOP TEAMS */}
-            <section className="glass-sports-card p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
-                  <h2 className="font-display text-sm font-bold text-white uppercase tracking-wider">Top Teams by Matches</h2>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded">Roster Count</span>
-                </div>
-                <div className="mt-6 space-y-5">
-                  {topTeams.map(([team, val], index) => (
-                    <div key={team} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs text-zinc-300">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-emerald-950 text-accent-green font-bold text-[10px]">
-                            {index + 1}
-                          </span>
-                          <span className="truncate max-w-[150px]" title={team}>{team}</span>
-                        </span>
-                        <span className="font-bold text-white">{val}</span>
-                      </div>
-                      {/* Meter bar */}
-                      <div className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-accent-green to-emerald-500 rounded-full" 
-                          style={{ width: `${(val / maxTeamAppearances) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {/* PARTICIPATING TEAMS */}
+            <div className="premium-sports-card p-5">
+              <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4 text-[10px]">
+                <span className="font-display font-bold text-white uppercase tracking-wider">TEAM PARTICIPATION</span>
+                <span className="font-mono text-zinc-500">MATCHES</span>
               </div>
-            </section>
+              <div className="space-y-4">
+                {topTeams.map(([team, val], index) => (
+                  <div key={team} className="space-y-1.5 font-mono text-xs">
+                    <div className="flex items-center justify-between text-zinc-300">
+                      <span className="flex items-center gap-2">
+                        <span className="text-zinc-600 font-bold">[{index + 1}]</span>
+                        <span className="font-sans font-semibold text-white uppercase truncate max-w-[150px]">{team}</span>
+                      </span>
+                      <span className="font-bold text-accent-cyan">{val}</span>
+                    </div>
+                    {/* Meter bar */}
+                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-accent-cyan rounded-full" 
+                        style={{ width: `${(val / maxTeamAppearances) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* TOP WINNERS */}
-            <section className="glass-sports-card p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
-                  <h2 className="font-display text-sm font-bold text-white uppercase tracking-wider">Top Winning Teams</h2>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded">Win count</span>
-                </div>
-                <div className="mt-6 space-y-5">
-                  {topWinners.map((item: WinnerItem, index: number) => (
-                    <div key={item.team} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs text-zinc-300">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-cyan-950 text-accent-cyan font-bold text-[10px]">
-                            {index + 1}
-                          </span>
-                          <span className="truncate max-w-[150px]" title={item.team}>{item.team}</span>
-                        </span>
-                        <span className="font-bold text-white">{item.wins}</span>
-                      </div>
-                      {/* Meter bar */}
-                      <div className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-accent-cyan to-cyan-500 rounded-full" 
-                          style={{ width: `${(item.wins / maxWins) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="premium-sports-card p-5">
+              <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4 text-[10px]">
+                <span className="font-display font-bold text-white uppercase tracking-wider">WIN LEADERS</span>
+                <span className="font-mono text-zinc-500">WINS</span>
               </div>
-            </section>
+              <div className="space-y-4">
+                {topWinners.map((item: WinnerItem, index: number) => (
+                  <div key={item.team} className="space-y-1.5 font-mono text-xs">
+                    <div className="flex items-center justify-between text-zinc-300">
+                      <span className="flex items-center gap-2">
+                        <span className="text-zinc-600 font-bold">[{index + 1}]</span>
+                        <span className="font-sans font-semibold text-white uppercase truncate max-w-[150px]">{item.team}</span>
+                      </span>
+                      <span className="font-bold text-turf-emerald">{item.wins}</span>
+                    </div>
+                    {/* Meter bar */}
+                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-turf-emerald rounded-full" 
+                        style={{ width: `${(item.wins / maxWins) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* TOP VENUES */}
-            <section className="glass-sports-card p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
-                  <h2 className="font-display text-sm font-bold text-white uppercase tracking-wider">Frequently Used Venues</h2>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded">Venue count</span>
-                </div>
-                <div className="mt-6 space-y-5">
-                  {topVenues.map((item: TopVenueItem, index: number) => (
-                    <div key={item.venue} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs text-zinc-300">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-amber-950 text-accent-yellow font-bold text-[10px]">
-                            {index + 1}
-                          </span>
-                          <span className="truncate max-w-[150px]" title={item.venue}>{item.venue}</span>
-                        </span>
-                        <span className="font-bold text-white">{item.matches}</span>
-                      </div>
-                      {/* Meter bar */}
-                      <div className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-accent-yellow to-amber-500 rounded-full" 
-                          style={{ width: `${(item.matches / maxMatchesVenue) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="premium-sports-card p-5">
+              <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4 text-[10px]">
+                <span className="font-display font-bold text-white uppercase tracking-wider">VENUE FREQUENCY</span>
+                <span className="font-mono text-zinc-500">COUNT</span>
               </div>
-            </section>
+              <div className="space-y-4">
+                {topVenues.map((item: TopVenueItem, index: number) => (
+                  <div key={item.venue} className="space-y-1.5 font-mono text-xs">
+                    <div className="flex items-center justify-between text-zinc-300">
+                      <span className="flex items-center gap-2">
+                        <span className="text-zinc-600 font-bold">[{index + 1}]</span>
+                        <span className="font-sans font-semibold text-white uppercase truncate max-w-[150px]">{item.venue}</span>
+                      </span>
+                      <span className="font-bold text-metric-amber">{item.matches}</span>
+                    </div>
+                    {/* Meter bar */}
+                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-metric-amber rounded-full" 
+                        style={{ width: `${(item.matches / maxMatchesVenue) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
 
-          {/* RECENT MATCHES LOG */}
-          <section className="glass-sports-card p-6">
-            <div className="flex items-center justify-between border-b border-zinc-900 pb-4 mb-6">
+          {/* RECENT MATCH LOG */}
+          <div className="premium-sports-card p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-900 pb-4 mb-6">
               <div>
-                <h2 className="font-display text-sm font-bold text-white uppercase tracking-wider">Recent Match Results</h2>
-                <p className="text-zinc-500 text-[11px] mt-1">Direct link to innings scorecard and aggregated match reviews.</p>
+                <h2 className="sports-heading text-base text-white">Telemetry Match Log</h2>
+                <p className="text-zinc-500 text-[10px] font-mono mt-0.5">Index of recent matches</p>
               </div>
               <Link href="/matches" className="text-xs font-bold text-accent-cyan hover:underline">
-                View Match Archive &rarr;
+                Full Index &rarr;
               </Link>
             </div>
             
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               {matches.slice(0, 6).map((match: MatchItem) => (
-                <Link
+                <div
                   key={match.id}
-                  href={`/matches/${match.id}`}
-                  className="group block rounded-xl border border-zinc-900 bg-zinc-950/60 p-4 hover:border-emerald-500/20 hover:bg-zinc-900/40 transition"
+                  className="rounded border border-zinc-900 bg-zinc-950/60 p-4.5 flex flex-col justify-between"
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{match.match_type || "T20"}</p>
-                  <p className="mt-2 font-display text-sm font-bold text-white group-hover:text-accent-green transition leading-snug">
+                  <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono mb-3">
+                    <span>{match.date}</span>
+                    <span className="font-bold uppercase text-accent-cyan">{match.match_type || "T20"}</span>
+                  </div>
+                  <h3 className="font-display text-sm font-bold text-white leading-tight uppercase">
                     {match.team_1} <br />
                     <span className="text-zinc-600 font-normal text-xs">vs</span> {match.team_2}
-                  </p>
-                  <div className="mt-4 flex items-center justify-between text-[11px] text-zinc-500 font-medium">
-                    <span>{match.date}</span>
-                    <span className="font-semibold text-white bg-zinc-900 px-2 py-0.5 rounded truncate max-w-[100px]">{match.winner || "TBD"}</span>
+                  </h3>
+                  <div className="mt-4 flex items-center justify-between text-[11px] pt-2 border-t border-zinc-900/50">
+                    <span className="text-zinc-500">Winner:</span>
+                    <span className="font-bold text-white uppercase tracking-tight">{match.winner || "TBD"}</span>
                   </div>
-                </Link>
+                  <Link
+                    href={`/matches/${match.id}`}
+                    className="mt-3 block text-center rounded border border-zinc-800 bg-zinc-950/80 py-1.5 text-[10px] font-bold text-zinc-300 hover:text-white transition duration-150"
+                  >
+                    View Details
+                  </Link>
+                </div>
               ))}
             </div>
-          </section>
+          </div>
 
         </div>
       </div>

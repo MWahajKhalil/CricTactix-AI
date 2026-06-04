@@ -21,12 +21,12 @@ export default function ChatPage() {
     {
       role: "ai",
       content:
-        "Tactical database connected. Ask me anything about PSL match dates, team rosters, venue statistics, batsman runs, or bowler wickets.",
+        "Tactical database telemetry active. Submit query scripts below to request aggregates regarding players, teams, match venues, run counts, or bowler wickets.",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Agent telemetry: Ready. Awaiting query sequence...");
+  const [statusMessage, setStatusMessage] = useState("Telemetry: Operational & Awaiting Query Sequence...");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,62 +36,59 @@ export default function ChatPage() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
-    setStatusMessage("Agent telemetry: Parsing query & executing SQL statements...");
+    setStatusMessage("Telemetry: Compiling query, executing SQLite statements...");
 
     try {
       const response = await sendChatMessage(userMessage);
       setMessages((prev) => [...prev, { role: "ai", content: response.answer }]);
-      setStatusMessage("Agent telemetry: Operational. Awaiting next command...");
+      setStatusMessage("Telemetry: Done. Awaiting next command sequence.");
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Connection failure.";
+      const message = error instanceof Error ? error.message : "Connection failed.";
       setMessages((prev) => [...prev, { role: "ai", content: `ERR: ${message}` }]);
-      setStatusMessage("Agent telemetry: Error. SQLite database offline or API key missing.");
+      setStatusMessage("Telemetry: SQL Execution error. Check backend connection.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-73px)] flex-col bg-zinc-950/60 relative">
-      {/* Background glow */}
-      <div className="absolute top-10 right-10 w-[300px] h-[300px] bg-accent-green/5 rounded-full blur-[90px] pointer-events-none" />
-      
-      {/* HEADER SECTION */}
-      <header className="border-b border-zinc-900 bg-zinc-950/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 sm:px-8 lg:px-12">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-900 transition"
-            >
-              &larr; Dashboard
-            </Link>
-            <div>
-              <p className="font-display text-[10px] uppercase tracking-widest text-accent-cyan">Analyst Workspace</p>
-              <h1 className="font-display text-lg font-bold text-white leading-tight">AI Tactical Chat</h1>
+    <div className="flex min-h-[calc(100vh-73px)] flex-col bg-zinc-950/20 relative py-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 sm:px-6">
+        
+        {/* PREMIUM GLASS CHAT WORKSPACE */}
+        <div className="premium-sports-card p-6 flex-1 flex flex-col justify-between">
+          
+          {/* Header toolbar */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-900 pb-4 mb-6">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="rounded border border-zinc-800 bg-zinc-950/60 px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:text-white transition duration-150"
+              >
+                &larr; Scoreboard
+              </Link>
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">Query Terminal</p>
+                <h1 className="sports-heading text-lg font-bold text-white">AI Analyst Board</h1>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-turf-emerald bg-zinc-950 px-3 py-1.5 rounded border border-zinc-900">
+              <span className="h-1.5 w-1.5 rounded-full bg-turf-emerald animate-pulse" />
+              SQL CORE ONLINE
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-accent-green bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-950/50">
-            <span className="h-2 w-2 rounded-full bg-accent-green shadow-md shadow-accent-green/40 animate-pulse" />
-            Agent Online
-          </div>
-        </div>
-      </header>
 
-      {/* WORKSPACE */}
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6 sm:px-8 lg:px-12">
-        
-        {/* PLAYBOOK & TIPS PANEL */}
-        <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-          <div className="glass-sports-card p-5">
-            <p className="font-display text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-900 pb-2 mb-3">Suggested Playbook Queries</p>
+          {/* PLAYBOOK PANEL */}
+          <div className="mb-6 rounded-lg bg-zinc-950/40 border border-zinc-900 p-4">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500 border-b border-zinc-900 pb-2 mb-3">Pre-defined Query Playbooks</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {suggestedPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
                   onClick={() => setInput(prompt)}
-                  className="rounded-xl border border-zinc-900 bg-zinc-950/60 px-4 py-3 text-left text-xs text-zinc-300 hover:border-accent-green/20 hover:bg-zinc-900 transition leading-snug"
+                  className="rounded border border-zinc-900 bg-zinc-950/60 px-4 py-2.5 text-left text-xs font-sans text-zinc-400 hover:border-zinc-800 hover:text-white transition duration-150 leading-snug"
                 >
                   {prompt}
                 </button>
@@ -99,81 +96,68 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="glass-sports-card p-5 border-l-4 border-l-accent-cyan flex flex-col justify-between">
-            <div>
-              <p className="font-display text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-900 pb-2 mb-3">Syntax Rules</p>
-              <ul className="text-[11px] leading-relaxed text-zinc-400 space-y-1.5">
-                <li>&bull; Wickets: count catches, bowled, lbws, stumpings, hit-wickets.</li>
-                <li>&bull; Runs: calculated strictly on batsman run credits.</li>
-                <li>&bull; Stadiums & Players: queries support partial, case-insensitive match terms.</li>
-              </ul>
+          {/* MESSAGES FEED AREA */}
+          <div className="flex-1 flex flex-col justify-between min-h-[300px]">
+            
+            {/* Telemetry bar */}
+            <div className="rounded border border-zinc-900 bg-zinc-950/90 px-4 py-2.5 text-[10px] font-mono text-zinc-500">
+              {statusMessage}
             </div>
+
+            {/* Chat feed */}
+            <div className="flex-1 my-6 space-y-4 overflow-y-auto max-h-[300px] pr-2 scrollbar-thin">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`max-w-[85%] rounded-xl p-4.5 font-sans text-xs ${
+                      msg.role === "user"
+                        ? "bg-zinc-900 border border-zinc-800 text-white rounded-tr-none"
+                        : "bg-zinc-950/90 border-l-2 border-l-turf-emerald border-y border-r border-y-zinc-900 border-r-zinc-900 text-zinc-300 rounded-tl-none"
+                    }`}
+                  >
+                    <div className={`mb-1.5 text-[8px] font-mono font-bold uppercase tracking-widest ${msg.role === "user" ? "text-accent-cyan" : "text-turf-emerald"}`}>
+                      {msg.role === "user" ? "TACTICAL_PROMPT" : "AI_OUTPUT"}
+                    </div>
+                    <div className="leading-relaxed whitespace-pre-wrap text-xs">{msg.content}</div>
+                  </div>
+                </div>
+              ))}
+
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-1.5 rounded border border-zinc-900 bg-zinc-950/70 px-4 py-2.5">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-turf-emerald" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-turf-emerald [animation-delay:0.2s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-turf-emerald [animation-delay:0.4s]" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Execution form */}
+            <form onSubmit={handleSubmit} className="flex gap-2 border-t border-zinc-900/60 pt-4">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Query database (e.g., 'Matches won by Multan in Multan')..."
+                className="flex-1 rounded premium-input px-4 py-3.5 text-xs text-white"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="rounded bg-turf-emerald px-5 py-3.5 text-xs font-bold text-zinc-950 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed transition uppercase font-mono"
+              >
+                {isLoading ? "EXEC..." : "EXECUTE"}
+              </button>
+            </form>
+
           </div>
+
         </div>
 
-        {/* TERMINAL CHAT SCREEN */}
-        <section className="flex-1 glass-sports-card p-5 flex flex-col justify-between bg-zinc-950/30">
-          
-          {/* Status Bar */}
-          <div className="rounded-lg border border-zinc-900 bg-zinc-950/90 px-4 py-2.5 text-[11px] font-mono text-zinc-500">
-            {statusMessage}
-          </div>
-
-          {/* Messages Feed */}
-          <div className="flex-1 my-6 space-y-5 overflow-y-auto max-h-[400px] pr-2">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl p-5 shadow-inner transition ${
-                    msg.role === "user"
-                      ? "bg-accent-green/5 border border-accent-green/20 text-white rounded-tr-none"
-                      : "bg-zinc-950/90 border border-zinc-900 text-zinc-300 rounded-tl-none"
-                  }`}
-                >
-                  <div className={`mb-2 text-[9px] font-bold uppercase tracking-widest ${msg.role === "user" ? "text-accent-green" : "text-accent-cyan"}`}>
-                    {msg.role === "user" ? "TACTICAL QUERY" : "SYSTEM RESPONSE"}
-                  </div>
-                  <div className="leading-relaxed text-xs sm:text-sm font-sans whitespace-pre-wrap">{msg.content}</div>
-                </div>
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-xl border border-zinc-900 bg-zinc-950/70 px-4 py-3">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-accent-green" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-accent-cyan [animation-delay:0.2s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-accent-green [animation-delay:0.4s]" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input Panel */}
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t border-zinc-900/60 pt-4">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Query database (e.g., 'Who scored the most runs for Lahore in 2024?')..."
-              className="flex-1 rounded-xl sports-input px-4 py-3.5 text-xs text-white"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="inline-flex items-center justify-center rounded-xl bg-accent-green px-5 py-3.5 text-xs font-bold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              {isLoading ? "EXEC..." : "EXECUTE"}
-            </button>
-          </form>
-
-        </section>
-      </main>
-
-      <footer className="border-t border-zinc-900 bg-zinc-950/70 py-3 text-center text-[10px] text-zinc-500 font-mono">
-        Telemetry logs generated from SQLite DB app config routes.
-      </footer>
+      </div>
     </div>
   );
 }

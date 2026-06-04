@@ -16,7 +16,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "CricTactix AI | Cricket Tactical Analyst",
+  title: "CricTactix AI | Premium Cricket Tactical Analyst",
   description: "AI-powered cricket match analysis and tactical insights built on PSL match data.",
 };
 
@@ -30,30 +30,39 @@ export default function RootLayout({
       lang="en"
       className={`${plusJakartaSans.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-zinc-950 text-zinc-100 font-sans selection:bg-accent-green/20 selection:text-white">
+      <body className="min-h-full bg-zinc-950 text-zinc-100 font-sans selection:bg-turf-emerald/20 selection:text-white">
         <div className="min-h-full flex flex-col">
-          <header className="sticky top-0 z-50 border-b border-emerald-950/40 bg-zinc-950/80 backdrop-blur-md">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 sm:px-8 lg:px-12">
-              <Link href="/" className="inline-flex items-center gap-3 text-lg font-display font-bold tracking-tight text-white hover:opacity-90 transition">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-accent-green text-sm font-bold text-zinc-950 shadow-md shadow-accent-green/30">
-                  CT
+          
+          {/* PREMIUM BROADCAST TELEMETRY NAVBAR */}
+          <header className="sticky top-0 z-50 broadcast-header-ticker backdrop-blur-md">
+            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+              
+              <div className="flex items-center gap-3">
+                <Link href="/" className="flex items-center gap-2 text-sm font-display font-bold tracking-wider text-white">
+                  <span className="h-2 w-2 rounded-full bg-turf-emerald animate-pulse" />
+                  CRICTACTIX <span className="text-zinc-500 font-normal">AI</span>
+                </Link>
+                <div className="hidden sm:block h-3 w-px bg-zinc-800" />
+                <span className="hidden sm:inline-flex text-[9px] font-mono text-zinc-500 uppercase tracking-widest">
+                  Match Analyst Deck
                 </span>
-                CricTactix <span className="text-accent-green font-normal">AI</span>
-              </Link>
-              <nav className="flex items-center gap-1 sm:gap-2 text-sm font-medium text-zinc-300">
-                <Link href="/" className="rounded-full px-4 py-2 transition hover:bg-emerald-900/10 hover:text-accent-green">
+              </div>
+
+              <nav className="flex items-center gap-2 text-xs font-display font-medium uppercase tracking-wider text-zinc-400">
+                <Link href="/" className="px-3 py-1.5 hover:text-white transition-colors">
                   Home
                 </Link>
-                <Link href="/dashboard" className="rounded-full px-4 py-2 transition hover:bg-emerald-900/10 hover:text-accent-green">
+                <Link href="/dashboard" className="px-3 py-1.5 hover:text-white transition-colors">
                   Dashboard
                 </Link>
-                <Link href="/matches" className="rounded-full px-4 py-2 transition hover:bg-emerald-900/10 hover:text-accent-green">
+                <Link href="/matches" className="px-3 py-1.5 hover:text-white transition-colors">
                   Matches
                 </Link>
-                <Link href="/chat" className="rounded-full ml-2 px-5 py-2.5 bg-accent-green text-zinc-950 font-semibold tracking-wide transition hover:scale-[1.02] hover:bg-emerald-400 active:scale-[0.98] shadow-md shadow-accent-green/25">
+                <Link href="/chat" className="ml-2 px-3.5 py-1.5 border border-turf-emerald/30 bg-turf-emerald/10 text-turf-emerald rounded-md transition hover:bg-turf-emerald hover:text-zinc-950 shadow shadow-turf-emerald/10 font-bold">
                   AI Analyst
                 </Link>
               </nav>
+
             </div>
           </header>
 
