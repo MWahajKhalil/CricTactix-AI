@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getMatches, getTopVenues, getTopWinners } from "@/lib/api";
+import { getMatches, getTopVenues, getTopWinners, getWinPercentages } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,13 @@ type WinnerItem = {
   wins: number;
 };
 
+type TeamWinPercentage = {
+  team: string;
+  played: number;
+  won: number;
+  win_percentage: number;
+};
+
 type TopVenueItem = {
   venue: string;
   matches: number;
@@ -33,25 +40,16 @@ export default async function DashboardPage() {
   const { count, matches } = await getMatches(1, 50);
   const topWinnerResponse = await getTopWinners(5);
   const topVenueResponse = await getTopVenues(5);
+  const winPercentagesResponse = await getWinPercentages();
 
-  const teamCounts: Record<string, number> = {};
-
-  matches.forEach((match: MatchItem) => {
-    teamCounts[match.team_1] = (teamCounts[match.team_1] || 0) + 1;
-    teamCounts[match.team_2] = (teamCounts[match.team_2] || 0) + 1;
-  });
-
-  const topTeams = Object.entries(teamCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
-  
+  const winPercentages = (winPercentagesResponse.win_percentages || []) as TeamWinPercentage[];
+  const winPercentagesTop5 = winPercentages.slice(0, 5);
   const topWinners = (topWinnerResponse.top_winners || []) as WinnerItem[];
   const topVenues = (topVenueResponse.top_venues || []) as TopVenueItem[];
 
   // Compute maximum values for progress widths
   const maxWins = topWinners.length > 0 ? Math.max(...topWinners.map(w => w.wins)) : 1;
   const maxMatchesVenue = topVenues.length > 0 ? Math.max(...topVenues.map(v => v.matches)) : 1;
-  const maxTeamAppearances = topTeams.length > 0 ? Math.max(...topTeams.map(([, c]) => c)) : 1;
 
   return (
     <div className="relative overflow-hidden py-12">
@@ -84,7 +82,7 @@ export default async function DashboardPage() {
 
             <div className="premium-sports-card p-6 border-l-2 border-l-accent-cyan bg-bg-secondary/10">
               <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">Franchises Active</p>
-              <p className="mt-4 font-display text-4xl font-extrabold text-header-text tracking-tight">{Object.keys(teamCounts).length}</p>
+              <p className="mt-4 font-display text-4xl font-extrabold text-header-text tracking-tight">{winPercentages.length}</p>
               <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">Represented in Matches</span>
             </div>
 
@@ -103,27 +101,27 @@ export default async function DashboardPage() {
           {/* LEADERBOARDS GRID */}
           <div className="grid gap-6 xl:grid-cols-3">
             
-            {/* PARTICIPATING TEAMS */}
+            {/* WIN RATE LEADERBOARD */}
             <div className="premium-sports-card p-5">
               <div className="flex items-center justify-between border-b border-border-color pb-3 mb-4 text-[9px]">
-                <span className="font-display font-bold text-header-text uppercase tracking-wider">TEAM PARTICIPATION</span>
-                <span className="font-mono text-text-muted">MATCHES</span>
+                <span className="font-display font-bold text-header-text uppercase tracking-wider">ALL-TIME WIN RATE</span>
+                <span className="font-mono text-text-muted">WIN %</span>
               </div>
               <div className="space-y-4">
-                {topTeams.map(([team, val], index) => (
-                  <div key={team} className="space-y-1.5 font-mono text-xs">
+                {winPercentagesTop5.map((item: TeamWinPercentage, index) => (
+                  <div key={item.team} className="space-y-1.5 font-mono text-xs">
                     <div className="flex items-center justify-between text-foreground">
                       <span className="flex items-center gap-2">
                         <span className="text-text-muted font-bold">[{index + 1}]</span>
-                        <span className="font-sans font-semibold text-header-text uppercase truncate max-w-[150px]">{team}</span>
+                        <span className="font-sans font-semibold text-header-text uppercase truncate max-w-[150px]">{item.team}</span>
                       </span>
-                      <span className="font-bold text-accent-cyan">{val}</span>
+                      <span className="font-bold text-accent-cyan">{item.win_percentage}%</span>
                     </div>
                     {/* Meter bar */}
                     <div className="h-1 w-full bg-bg-secondary rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-accent-cyan rounded-full" 
-                        style={{ width: `${(val / maxTeamAppearances) * 100}%` }}
+                        style={{ width: `${item.win_percentage}%` }}
                       />
                     </div>
                   </div>

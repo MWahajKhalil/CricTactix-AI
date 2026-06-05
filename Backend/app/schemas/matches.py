@@ -35,6 +35,15 @@ class WinnerItem(BaseModel):
 class TopWinnersResponse(BaseModel):
     top_winners: List[WinnerItem]
 
+class TeamWinPercentage(BaseModel):
+    team: str
+    played: int
+    won: int
+    win_percentage: float
+
+class WinPercentagesResponse(BaseModel):
+    win_percentages: List[TeamWinPercentage]
+
 class VenueItem(BaseModel):
     venue: str
     matches: int

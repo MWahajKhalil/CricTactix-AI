@@ -15,6 +15,7 @@ from app.schemas.matches import (
     TopWinnersResponse,
     TopVenuesResponse,
     MatchDetailResponse,
+    WinPercentagesResponse,
 )
 from app.core.helpers import (
     TEAM_ALIAS_MAP,
@@ -314,6 +315,39 @@ def get_top_winners(limit: int = Query(5, ge=1, le=20), db: Session = Depends(ge
             for row in winners
         ]
     }
+
+
+@router.get("/stats/win-percentages", response_model=WinPercentagesResponse)
+def get_win_percentages(db: Session = Depends(get_db)):
+    """Return win percentages for all teams, sorted by win percentage descending."""
+    matches = db.query(Match.team_1, Match.team_2, Match.winner).all()
+    
+    stats = {}
+    for m in matches:
+        t1, t2, winner = m.team_1, m.team_2, m.winner
+        if t1:
+            stats.setdefault(t1, {"played": 0, "won": 0})
+            stats[t1]["played"] += 1
+        if t2:
+            stats.setdefault(t2, {"played": 0, "won": 0})
+            stats[t2]["played"] += 1
+        if winner and winner in stats:
+            stats[winner]["won"] += 1
+            
+    result = []
+    for team, data in stats.items():
+        played = data["played"]
+        won = data["won"]
+        pct = (won / played * 100) if played > 0 else 0.0
+        result.append({
+            "team": team,
+            "played": played,
+            "won": won,
+            "win_percentage": round(pct, 1)
+        })
+        
+    result.sort(key=lambda x: x["win_percentage"], reverse=True)
+    return {"win_percentages": result}
 
 
 @router.get("/stats/top-venues", response_model=TopVenuesResponse)

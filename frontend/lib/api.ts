@@ -84,6 +84,23 @@ export async function getTopWinners(limit = 5) {
   }
 }
 
+export async function getWinPercentages() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/matches/stats/win-percentages`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch win percentages: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching win percentages:", error);
+    return { win_percentages: [] };
+  }
+}
+
 export async function getTopVenues(limit = 5) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/matches/stats/top-venues?limit=${limit}`, {
