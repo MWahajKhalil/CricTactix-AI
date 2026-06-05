@@ -29,6 +29,22 @@ def _resolve_sqlite_url(value: str) -> str:
     return f"sqlite:///{path.resolve()}"
 
 
+def _resolve_backend_path(value: str) -> str:
+    if not isinstance(value, str):
+        return value
+    path = Path(value)
+    if not path.is_absolute():
+        clean_val = value.removeprefix("./")
+        if clean_val.startswith("Backend/"):
+            workspace_root = Path(__file__).resolve().parents[3]
+            resolved_path = workspace_root / clean_val
+        else:
+            backend_root = Path(__file__).resolve().parents[2]
+            resolved_path = backend_root / path
+        return str(resolved_path.resolve())
+    return str(path.resolve())
+
+
 class Settings(BaseSettings):
     # Use SettingsConfigDict to configure env file and allow ignoring extra envs.
     # This is useful for local development with mixed environment variables.
@@ -42,6 +58,8 @@ class Settings(BaseSettings):
     def __init__(self, **values):
         super().__init__(**values)
         self.DATABASE_URL = _resolve_sqlite_url(self.DATABASE_URL)
+        self.CHROMA_DB_PATH = _resolve_backend_path(self.CHROMA_DB_PATH)
+        self.REPORTS_DIR = _resolve_backend_path(self.REPORTS_DIR)
 
 
 settings = Settings()
