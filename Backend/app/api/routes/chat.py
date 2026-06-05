@@ -558,6 +558,7 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
     - To query playoff matches (like Final, Qualifier, Eliminator 1, Eliminator 2) in the SQL database, you MUST first query the qualitative match reports using `query_match_reports` (e.g., "date and teams of PSL 2026 final" or "date and teams of PSL 2026 Eliminator 2") to find the exact date and participating teams.
     - Once you have the date and teams from the match reports, write a SQL query filtering by those teams and the specific `start_date` to retrieve structured statistics (like the winner, player_of_match, or runs).
     - Alternatively, the "Final" is the last match of the season (ordered by `start_date` descending or having the maximum `id` in that season).
+    - CRITICAL: When calling `query_match_reports`, ALWAYS include the specific teams (e.g., "Peshawar Zalmi vs Hyderabad Kingsmen final") or the match date if known, alongside your keywords, to help the vector store retrieve the correct match report and avoid mixing up rounds (e.g., query 'Peshawar Zalmi Hyderabad Kingsmen final turning point' instead of just 'final match turning point').
 
 Available database tables (for when you do write raw SQL queries):
 - matches(id, cricsheet_match_id, match_type, venue, city, start_date, team_1, team_2, winner, team_1_id, team_2_id, player_of_match, toss_winner, toss_decision, win_by_runs, win_by_wickets, season)
