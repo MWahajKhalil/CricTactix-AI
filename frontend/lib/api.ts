@@ -151,3 +151,33 @@ export async function sendChatMessage(query: string) {
     throw error;
   }
 }
+
+export async function getMatchupPlayers() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/matchups/players`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch matchup players: ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error fetching matchup players:", error);
+    return { batters: [], bowlers: [] };
+  }
+}
+
+export async function getMatchupAnalysis(batter: string, bowler: string) {
+  const params = new URLSearchParams({
+    batter,
+    bowler,
+  });
+  const response = await fetch(`${API_BASE_URL}/api/matchups/analyze?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to analyze matchup: ${response.status}`);
+  }
+  return response.json();
+}

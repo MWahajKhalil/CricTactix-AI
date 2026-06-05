@@ -76,6 +76,9 @@ export default function RootLayout({
                 <Link href="/matches" className="px-2.5 py-1.5 hover:text-header-text transition-colors">
                   Matches
                 </Link>
+                <Link href="/matchups" className="px-2.5 py-1.5 hover:text-header-text transition-colors">
+                  Simulator
+                </Link>
                 <Link href="/chat" className="ml-1 px-3 py-1.5 border border-turf-emerald/20 bg-turf-emerald/5 text-turf-emerald rounded transition hover:bg-turf-emerald hover:text-zinc-950 dark:hover:text-zinc-950 font-bold">
                   AI Analyst
                 </Link>
