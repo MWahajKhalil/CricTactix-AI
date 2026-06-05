@@ -7,7 +7,8 @@ from dotenv import load_dotenv, find_dotenv
 # LangChain Imports
 from langchain_community.utilities import SQLDatabase
 from langchain_openai import ChatOpenAI
-from langchain_community.agent_toolkits import create_sql_agent
+from langgraph.prebuilt import create_react_agent
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_core.tools import tool
 
 # SQLAlchemy Imports
@@ -606,19 +607,37 @@ async def chat_with_agent(request: ChatRequest):
             query_match_reports
         ]
 
-        agent_executor = create_sql_agent(
-            llm=llm,
-            db=db,
-            agent_type="openai-tools",
-            prefix=AGENT_PROMPT_PREFIX,
-            suffix=AGENT_SUFFIX,
-            verbose=True,
-            extra_tools=extra_tools
+        # Initialize SQLDatabaseToolkit to get standard LangChain SQL DB tools
+        toolkit = SQLDatabaseToolkit(db=db, llm=llm)
+        sql_tools = toolkit.get_tools()
+
+        # Combine tools
+        all_tools = sql_tools + extra_tools
+
+        # Format system prompt by resolving sqlite variables and removing LangChain template keys
+        clean_suffix = AGENT_SUFFIX.split("Question: {input}")[0].strip()
+        system_prompt = (
+            AGENT_PROMPT_PREFIX.format(dialect="sqlite", top_k=5)
+            + "\n\n"
+            + clean_suffix
         )
 
-        response = agent_executor.invoke({"input": request.query})
+        # Create LangGraph react agent
+        agent_executor = create_react_agent(
+            model=llm,
+            tools=all_tools,
+            prompt=system_prompt
+        )
 
-        return {"answer": response["output"]}
+        # Invoke the LangGraph compiled graph
+        graph_response = agent_executor.invoke(
+            {"messages": [("user", request.query)]}
+        )
+
+        # The last message contains the assistant's final response content
+        answer = graph_response["messages"][-1].content
+
+        return {"answer": answer}
 
     except Exception as e:
         print(f"Agent Error: {e}")
