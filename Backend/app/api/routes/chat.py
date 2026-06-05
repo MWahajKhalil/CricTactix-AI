@@ -491,6 +491,28 @@ def get_team_stats(
     finally:
         db.close()
 
+@tool
+def query_match_reports(query: str) -> str:
+    """
+    Query qualitative match reports, analyst reviews, post-match summaries, 
+    stadium pitch behaviors, toss decisions/explanations, turning points, match controversies 
+    (e.g., Naseem Shah's tweet, security breaches, ball tampering), or general comments on play-offs/qualifiers.
+    Use this tool when a question asks for details about a match that are not just structured 
+    statistics, such as pitch conditions, why a captain made a decision, what analysts said, 
+    dropped catches, security breaches, ball tampering, or other qualitative context.
+    
+    Args:
+        query: The question or query string to search for in the match reports.
+        
+    Returns:
+        A string containing the relevant information extracted from the match reports.
+    """
+    try:
+        from app.services.rag_service import query_match_reports as query_rag
+        return query_rag(query)
+    except Exception as e:
+        return f"Error querying match reports: {str(e)}"
+
 AGENT_PROMPT_PREFIX = """
 You are CricTactix AI, a helpful and premium cricket tactical analyst SQL agent.
 Use only the database tables and columns described below, or call the provided custom tools when appropriate.
@@ -500,6 +522,7 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
    - For player statistics (runs, strike rates, averages, wickets, boundaries, etc.), you MUST call `get_player_stats` instead of writing SQL queries.
    - For head-to-head match-up statistics (e.g., batsman vs bowler), you MUST call `get_matchup_stats` instead of writing SQL queries.
    - For team wins, losses, ties, or total matches played, you MUST call `get_team_stats` instead of writing SQL queries. (DO NOT call this tool for stadiums or venues, write a raw SQL query on matches table instead).
+   - For qualitative details, pitch/weather conditions, toss decisions/explanations, turning points, analyst reviews, post-match summaries, or controversies (like Naseem Shah's tweet, security breaches, ball tampering), you MUST call `query_match_reports` instead of writing SQL queries or guessing.
    - If you are unsure of the spelling of a player's name (e.g., "Shaheen" or "Fakhar"), first call `find_players` with a partial name query to get the correct name.
    - Only write raw SQL queries for match-level statistics, venue summaries, team standings, or general queries not covered by the custom tools.
 
@@ -530,6 +553,12 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
    - Example (to find the highest team innings score in matches between Karachi and Lahore): `SELECT batting_team, match_id, SUM(runs_total) as innings_runs FROM deliveries WHERE (batting_team LIKE '%Karachi%' AND bowling_team LIKE '%Lahore%') OR (batting_team LIKE '%Lahore%' AND bowling_team LIKE '%Karachi%') GROUP BY match_id, innings_number, batting_team ORDER BY innings_runs DESC LIMIT 1`.
    - CRITICAL: Never use `MAX(runs_total)` or `MAX(runs_batter)` directly on raw delivery rows when asked for "most runs in an innings", as that will return the maximum runs scored on a single ball/delivery (which is 6 runs) instead of the total runs scored in the entire innings! Always use case-insensitive `LIKE` patterns (e.g. `%Karachi%`, `%Lahore%`) for team names in the WHERE conditions.
 
+10. **Playoff and Round Queries**:
+    - The database does NOT have a "round" or "match_type" column for play-off matches (all matches have `match_type = 'T20'`).
+    - To query playoff matches (like Final, Qualifier, Eliminator 1, Eliminator 2) in the SQL database, you MUST first query the qualitative match reports using `query_match_reports` (e.g., "date and teams of PSL 2026 final" or "date and teams of PSL 2026 Eliminator 2") to find the exact date and participating teams.
+    - Once you have the date and teams from the match reports, write a SQL query filtering by those teams and the specific `start_date` to retrieve structured statistics (like the winner, player_of_match, or runs).
+    - Alternatively, the "Final" is the last match of the season (ordered by `start_date` descending or having the maximum `id` in that season).
+
 Available database tables (for when you do write raw SQL queries):
 - matches(id, cricsheet_match_id, match_type, venue, city, start_date, team_1, team_2, winner, team_1_id, team_2_id, player_of_match, toss_winner, toss_decision, win_by_runs, win_by_wickets, season)
 - deliveries(id, match_id, innings_number, over_number, ball_number, batting_team, bowling_team, batter, bowler, non_striker, runs_batter, runs_extras, runs_total, wides, noballs, byes, legbyes, wicket_type, player_out, phase, fielder)
@@ -544,7 +573,7 @@ Top {top_k} rows are available from the database.
 
 AGENT_SUFFIX = """
 CRITICAL RULES FOR CALCULATING CRICKET STATS (YOU MUST OBEY THESE):
-1. **Prefer Custom Tools**: For player statistics, matchups, or team win/loss records, you MUST call `get_player_stats`, `get_matchup_stats`, `get_team_stats`, or `find_players` instead of writing raw SQL queries. (DO NOT call `get_team_stats` for stadiums/venues, write a raw SQL query on `matches` instead).
+1. **Prefer Custom Tools**: For player statistics, matchups, team win/loss records, or qualitative/match report details, you MUST call `get_player_stats`, `get_matchup_stats`, `get_team_stats`, `find_players`, or `query_match_reports` instead of writing raw SQL queries. (DO NOT call `get_team_stats` for stadiums/venues, write a raw SQL query on `matches` instead).
 2. **Bowler Wickets (If writing raw SQL)**: Count deliveries where bowler matches AND wicket_type is one of: 'bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'. Do not count run outs/retired outs.
 3. **Batsman Runs (If writing raw SQL)**: SUM the `runs_batter` column.
 4. **Name Matching (If writing raw SQL)**: ALWAYS use case-insensitive `LIKE` patterns.
@@ -568,7 +597,13 @@ async def chat_with_agent(request: ChatRequest):
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
         # Register custom tools to supplement database SQL access
-        extra_tools = [find_players, get_player_stats, get_matchup_stats, get_team_stats]
+        extra_tools = [
+            find_players, 
+            get_player_stats, 
+            get_matchup_stats, 
+            get_team_stats, 
+            query_match_reports
+        ]
 
         agent_executor = create_sql_agent(
             llm=llm,
