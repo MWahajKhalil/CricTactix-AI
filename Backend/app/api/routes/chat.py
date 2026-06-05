@@ -507,9 +507,22 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
 
 4. **Name Matching (If writing raw SQL)**: ALWAYS use case-insensitive `LIKE` patterns (e.g. `LIKE '%Shaheen%'`) when querying players, stadiums, or teams.
 
+5. **Most Man of the Match Awards**: Query the `player_of_match` column in the `matches` table.
+   - Example: `SELECT player_of_match, COUNT(*) as awards FROM matches WHERE player_of_match IS NOT NULL GROUP BY player_of_match ORDER BY awards DESC LIMIT 1`.
+
+6. **Matches Played by a Player (If writing raw SQL)**: To count the number of matches played by a player, count the DISTINCT `match_id` in the `deliveries` table where the player was involved as the batter, bowler, or non-striker.
+   - Example: `SELECT COUNT(DISTINCT match_id) FROM deliveries WHERE batter LIKE '%Babar%' OR bowler LIKE '%Babar%' OR non_striker LIKE '%Babar%'`.
+   - CRITICAL: Never count raw deliveries (i.e. DO NOT count rows using `COUNT(*)` or `COUNT(match_id)` without `DISTINCT`), because that counts the balls played/faced, resulting in heavily bloated numbers!
+
+7. **Most Catches Taken (If writing raw SQL)**: Group by the `fielder` column in `deliveries` where `wicket_type = 'caught'` and count occurrences.
+   - Example: `SELECT fielder, COUNT(*) as catches FROM deliveries WHERE wicket_type = 'caught' AND fielder IS NOT NULL GROUP BY fielder ORDER BY catches DESC LIMIT 1`.
+
+8. **Most Sixes or Fours (If writing raw SQL)**: Group by the `batter` column in `deliveries` where `runs_batter = 6` (for sixes) or `runs_batter = 4` (for fours) and count occurrences.
+   - Example: `SELECT batter, COUNT(*) as sixes FROM deliveries WHERE runs_batter = 6 GROUP BY batter ORDER BY sixes DESC LIMIT 1`.
+
 Available database tables (for when you do write raw SQL queries):
-- matches(id, cricsheet_match_id, match_type, venue, city, start_date, team_1, team_2, winner, team_1_id, team_2_id)
-- deliveries(match_id, innings_number, over_number, ball_number, batting_team, bowling_team, batter, bowler, non_striker, runs_batter, runs_extras, runs_total, wicket_type, player_out, phase)
+- matches(id, cricsheet_match_id, match_type, venue, city, start_date, team_1, team_2, winner, team_1_id, team_2_id, player_of_match, toss_winner, toss_decision, win_by_runs, win_by_wickets, season)
+- deliveries(id, match_id, innings_number, over_number, ball_number, batting_team, bowling_team, batter, bowler, non_striker, runs_batter, runs_extras, runs_total, wides, noballs, byes, legbyes, wicket_type, player_out, phase, fielder)
 - players(id, name, team, short_name, meta)
 - teams(id, name, short_name, aliases)
 
@@ -525,6 +538,8 @@ CRITICAL RULES FOR CALCULATING CRICKET STATS (YOU MUST OBEY THESE):
 2. **Bowler Wickets (If writing raw SQL)**: Count deliveries where bowler matches AND wicket_type is one of: 'bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'. Do not count run outs/retired outs.
 3. **Batsman Runs (If writing raw SQL)**: SUM the `runs_batter` column.
 4. **Name Matching (If writing raw SQL)**: ALWAYS use case-insensitive `LIKE` patterns.
+5. **Counting Matches**: ALWAYS count `DISTINCT match_id` in the `deliveries` table. Never count raw rows.
+6. **catches & boundaries**: Filter `wicket_type = 'caught'` for catches (and group by `fielder`), and filter `runs_batter = 6` (or `4`) for sixes/fours (and group by `batter`).
 
 Begin!
 

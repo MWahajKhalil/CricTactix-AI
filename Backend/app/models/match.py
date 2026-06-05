@@ -16,6 +16,13 @@ class Match(Base):
     team_1 = Column(String(255))
     team_2 = Column(String(255))
     winner = Column(String(255))
+    
+    player_of_match = Column(String(255), nullable=True)
+    toss_winner = Column(String(255), nullable=True)
+    toss_decision = Column(String(50), nullable=True)
+    win_by_runs = Column(Integer, nullable=True, default=0)
+    win_by_wickets = Column(Integer, nullable=True, default=0)
+    season = Column(String(50), nullable=True)
 
     # optional canonical team foreign keys (nullable for backward compatibility)
     team_1_id = Column(Integer, ForeignKey("teams.id"), nullable=True)

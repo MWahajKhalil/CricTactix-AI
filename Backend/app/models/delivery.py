@@ -26,4 +26,5 @@ class Delivery(Base):
     wicket_type = Column(String(100), nullable=True)
     player_out = Column(String(255), nullable=True)
     phase = Column(String(50), nullable=True)
+    fielder = Column(String(255), nullable=True)
 

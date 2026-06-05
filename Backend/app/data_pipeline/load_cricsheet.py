@@ -119,6 +119,19 @@ def load_match_data():
                 team1_obj = get_or_create_team(team_1)
                 team2_obj = get_or_create_team(team_2)
 
+                pom_list = info.get("player_of_match", [])
+                player_of_match = pom_list[0] if pom_list else None
+                
+                toss = info.get("toss", {})
+                toss_winner = toss.get("winner")
+                toss_decision = toss.get("decision")
+                
+                outcome_by = info.get("outcome", {}).get("by", {})
+                win_by_runs = outcome_by.get("runs", 0)
+                win_by_wickets = outcome_by.get("wickets", 0)
+                
+                season = info.get("season")
+
                 # Insert Match with ORM FK references
                 new_match = Match(
                     cricsheet_match_id=cricsheet_id,
@@ -131,6 +144,12 @@ def load_match_data():
                     winner=winner,
                     team_1_id=team1_obj.id,
                     team_2_id=team2_obj.id,
+                    player_of_match=player_of_match,
+                    toss_winner=toss_winner,
+                    toss_decision=toss_decision,
+                    win_by_runs=win_by_runs,
+                    win_by_wickets=win_by_wickets,
+                    season=season,
                 )
                 db.add(new_match)
                 db.flush()
@@ -181,6 +200,16 @@ def load_match_data():
                             wickets = delivery.get("wickets", [])
                             extras = delivery.get("extras", {}) or {}
 
+                            fielder = None
+                            if wickets:
+                                fielders = wickets[0].get("fielders", [])
+                                if fielders:
+                                    first_fielder = fielders[0]
+                                    if isinstance(first_fielder, dict):
+                                        fielder = first_fielder.get("name")
+                                    elif isinstance(first_fielder, str):
+                                        fielder = first_fielder
+
                             deliveries_to_insert.append(Delivery(
                                 match_id=new_match.id,
                                 innings_number=inn_idx + 1,
@@ -200,7 +229,8 @@ def load_match_data():
                                 legbyes=extras.get("legbyes", 0),
                                 wicket_type=wickets[0].get("kind") if wickets else None,
                                 player_out=wickets[0].get("player_out") if wickets else None,
-                                phase=phase
+                                phase=phase,
+                                fielder=fielder
                             ))
 
 

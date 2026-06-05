@@ -237,38 +237,6 @@ def get_all_matches(
         .all()
     }
 
-    import os
-    import zipfile
-    import json
-
-    extra_details = {}
-    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    zip_path = os.path.join(backend_dir, "data", "raw", "psl_json.zip")
-    if os.path.exists(zip_path):
-        try:
-            with zipfile.ZipFile(zip_path, "r") as z:
-                namelist = z.namelist()
-                for m in matches:
-                    filename = f"{m.cricsheet_match_id}.json"
-                    if filename in namelist:
-                        with z.open(filename) as f:
-                            data = json.load(f)
-                        info = data.get("info", {})
-                        pom = info.get("player_of_match", [])
-                        outcome = info.get("outcome", {})
-                        by = outcome.get("by", {})
-                        toss = info.get("toss", {})
-                        extra_details[m.id] = {
-                            "player_of_match": pom[0] if pom else None,
-                            "toss_winner": toss.get("winner"),
-                            "toss_decision": toss.get("decision"),
-                            "win_by_runs": by.get("runs"),
-                            "win_by_wickets": by.get("wickets"),
-                            "season": info.get("season"),
-                        }
-        except Exception as e:
-            print(f"Error loading extra details for match list: {e}")
-
     return {
         "count": total,
         "page": page,
@@ -285,12 +253,12 @@ def get_all_matches(
                 "venue": m.venue,
                 "city": m.city,
                 "has_scorecard": delivery_counts.get(m.id, 0) > 0,
-                "player_of_match": extra_details.get(m.id, {}).get("player_of_match"),
-                "toss_winner": extra_details.get(m.id, {}).get("toss_winner"),
-                "toss_decision": extra_details.get(m.id, {}).get("toss_decision"),
-                "win_by_runs": extra_details.get(m.id, {}).get("win_by_runs"),
-                "win_by_wickets": extra_details.get(m.id, {}).get("win_by_wickets"),
-                "season": extra_details.get(m.id, {}).get("season"),
+                "player_of_match": m.player_of_match,
+                "toss_winner": m.toss_winner,
+                "toss_decision": m.toss_decision,
+                "win_by_runs": m.win_by_runs,
+                "win_by_wickets": m.win_by_wickets,
+                "season": m.season,
             }
             for m in matches
         ],
@@ -377,12 +345,12 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Match not found")
 
     roster_map = {}
-    player_of_match = None
-    toss_winner = None
-    toss_decision = None
-    win_by_runs = None
-    win_by_wickets = None
-    season = None
+    player_of_match = match.player_of_match
+    toss_winner = match.toss_winner
+    toss_decision = match.toss_decision
+    win_by_runs = match.win_by_runs
+    win_by_wickets = match.win_by_wickets
+    season = match.season
     umpires = []
     tv_umpire = None
     match_referee = None
@@ -398,20 +366,6 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
                         data = json.load(f)
                     info = data.get("info", {})
                     roster_map = info.get("players", {})
-                    
-                    pom = info.get("player_of_match", [])
-                    player_of_match = pom[0] if pom else None
-                    
-                    toss = info.get("toss", {})
-                    toss_winner = toss.get("winner")
-                    toss_decision = toss.get("decision")
-                    
-                    outcome = info.get("outcome", {})
-                    by = outcome.get("by", {})
-                    win_by_runs = by.get("runs")
-                    win_by_wickets = by.get("wickets")
-                    
-                    season = info.get("season")
                     
                     officials = info.get("officials", {})
                     umpires = officials.get("umpires", [])
