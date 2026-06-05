@@ -424,6 +424,10 @@ def get_team_stats(
     Use this tool whenever a question asks for a team's wins, losses, total matches played, 
     or overall win/loss record, especially when filters like venue or year are specified.
     
+    CRITICAL: DO NOT call this tool for stadium/venue names (e.g. Gaddafi Stadium, National Stadium, etc.).
+    It is strictly for actual cricket teams (e.g. Karachi Kings, Lahore Qalandars). For stadium match counts,
+    write a raw SQL query on the matches table instead.
+    
     Args:
         team_name: The name or partial name of the team (e.g. 'Karachi Kings', 'Peshawar Zalmi', 'karachi', 'lahore').
         venue: Optional stadium or city filter (e.g. 'Gaddafi Stadium' or 'Lahore').
@@ -495,7 +499,7 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
 1. **Prefer Custom Tools**:
    - For player statistics (runs, strike rates, averages, wickets, boundaries, etc.), you MUST call `get_player_stats` instead of writing SQL queries.
    - For head-to-head match-up statistics (e.g., batsman vs bowler), you MUST call `get_matchup_stats` instead of writing SQL queries.
-   - For team wins, losses, ties, or total matches played, you MUST call `get_team_stats` instead of writing SQL queries.
+   - For team wins, losses, ties, or total matches played, you MUST call `get_team_stats` instead of writing SQL queries. (DO NOT call this tool for stadiums or venues, write a raw SQL query on matches table instead).
    - If you are unsure of the spelling of a player's name (e.g., "Shaheen" or "Fakhar"), first call `find_players` with a partial name query to get the correct name.
    - Only write raw SQL queries for match-level statistics, venue summaries, team standings, or general queries not covered by the custom tools.
 
@@ -506,6 +510,8 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
 3. **Batsman Runs (If writing raw SQL)**: To calculate runs scored by a batsman in raw SQL, SUM the `runs_batter` column where `batter` matches the player's name.
 
 4. **Name Matching (If writing raw SQL)**: ALWAYS use case-insensitive `LIKE` patterns (e.g. `LIKE '%Shaheen%'`) when querying players, stadiums, or teams.
+   - For stadium/venue queries, be flexible with `LIKE` patterns since stadium names in the database are formatted as `[Stadium Name], [City Name]` (e.g. `Gaddafi Stadium, Lahore`, `National Stadium, Karachi`).
+   - If a query includes both a stadium and a city (like "National Stadium Karachi"), split them into multiple `LIKE` conditions (e.g. `venue LIKE '%National Stadium%' AND venue LIKE '%Karachi%'`) rather than matching the whole concatenated string without the comma, to ensure correct matches.
 
 5. **Most Man of the Match Awards**: Query the `player_of_match` column in the `matches` table.
    - Example: `SELECT player_of_match, COUNT(*) as awards FROM matches WHERE player_of_match IS NOT NULL GROUP BY player_of_match ORDER BY awards DESC LIMIT 1`.
@@ -519,6 +525,10 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
 
 8. **Most Sixes or Fours (If writing raw SQL)**: Group by the `batter` column in `deliveries` where `runs_batter = 6` (for sixes) or `runs_batter = 4` (for fours) and count occurrences.
    - Example: `SELECT batter, COUNT(*) as sixes FROM deliveries WHERE runs_batter = 6 GROUP BY batter ORDER BY sixes DESC LIMIT 1`.
+
+9. **Innings Total Runs vs Ball-by-ball Runs (If writing raw SQL)**: To calculate total runs scored in an innings or by a team in a match, you MUST `SUM(runs_total)` (or `SUM(runs_batter) + SUM(runs_extras)`) grouped by `match_id` and `innings_number` (or `batting_team`).
+   - Example (to find the highest team innings score in matches between Karachi and Lahore): `SELECT batting_team, match_id, SUM(runs_total) as innings_runs FROM deliveries WHERE (batting_team LIKE '%Karachi%' AND bowling_team LIKE '%Lahore%') OR (batting_team LIKE '%Lahore%' AND bowling_team LIKE '%Karachi%') GROUP BY match_id, innings_number, batting_team ORDER BY innings_runs DESC LIMIT 1`.
+   - CRITICAL: Never use `MAX(runs_total)` or `MAX(runs_batter)` directly on raw delivery rows when asked for "most runs in an innings", as that will return the maximum runs scored on a single ball/delivery (which is 6 runs) instead of the total runs scored in the entire innings! Always use case-insensitive `LIKE` patterns (e.g. `%Karachi%`, `%Lahore%`) for team names in the WHERE conditions.
 
 Available database tables (for when you do write raw SQL queries):
 - matches(id, cricsheet_match_id, match_type, venue, city, start_date, team_1, team_2, winner, team_1_id, team_2_id, player_of_match, toss_winner, toss_decision, win_by_runs, win_by_wickets, season)
@@ -534,12 +544,13 @@ Top {top_k} rows are available from the database.
 
 AGENT_SUFFIX = """
 CRITICAL RULES FOR CALCULATING CRICKET STATS (YOU MUST OBEY THESE):
-1. **Prefer Custom Tools**: For player statistics, matchups, or team win/loss records, you MUST call `get_player_stats`, `get_matchup_stats`, `get_team_stats`, or `find_players` instead of writing raw SQL queries.
+1. **Prefer Custom Tools**: For player statistics, matchups, or team win/loss records, you MUST call `get_player_stats`, `get_matchup_stats`, `get_team_stats`, or `find_players` instead of writing raw SQL queries. (DO NOT call `get_team_stats` for stadiums/venues, write a raw SQL query on `matches` instead).
 2. **Bowler Wickets (If writing raw SQL)**: Count deliveries where bowler matches AND wicket_type is one of: 'bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'. Do not count run outs/retired outs.
 3. **Batsman Runs (If writing raw SQL)**: SUM the `runs_batter` column.
 4. **Name Matching (If writing raw SQL)**: ALWAYS use case-insensitive `LIKE` patterns.
 5. **Counting Matches**: ALWAYS count `DISTINCT match_id` in the `deliveries` table. Never count raw rows.
 6. **catches & boundaries**: Filter `wicket_type = 'caught'` for catches (and group by `fielder`), and filter `runs_batter = 6` (or `4`) for sixes/fours (and group by `batter`).
+7. **Team/Innings Total Runs**: ALWAYS use `SUM(runs_total)` grouped by `match_id` and `innings_number` (or `batting_team`) to find innings totals. DO NOT use `MAX(runs_total)` or `MAX(runs_batter)` directly on raw delivery rows.
 
 Begin!
 
