@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMatchById } from "@/lib/api";
 import MatchScorecard from "@/components/MatchScorecard";
+import WormChartWrapper from "@/components/WormChartWrapper";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -183,6 +184,33 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
           <div className="premium-sports-card p-12 text-center bg-bg-secondary/10">
             <p className="font-mono text-xs text-text-muted tracking-widest">BALL_BY_BALL_RECORDING_UNAVAILABLE</p>
           </div>
+        )}
+
+        {/* TACTICAL PROGRESSION (WORM CHART) */}
+        {match.scorecard && match.scorecard.innings && match.scorecard.innings.length > 0 && (
+          <details className="group premium-sports-card bg-bg-secondary/5 border border-border-color/50 rounded-lg overflow-hidden" open>
+            <summary className="flex items-center justify-between p-4 text-xs font-bold text-text-muted cursor-pointer hover:bg-hover-bg select-none transition">
+              <span className="font-display uppercase tracking-widest flex items-center gap-2">
+                <span className="text-turf-emerald text-sm">📈</span>
+                Innings Run Progression (Worm Chart)
+              </span>
+              <span className="transition-transform duration-200 group-open:rotate-180 text-text-muted font-mono font-bold text-[14px]">
+                &darr;
+              </span>
+            </summary>
+            <div className="p-6 border-t border-border-color/40 bg-bg-secondary/10 flex flex-col gap-4">
+              <div className="flex items-center justify-between text-[9px] font-mono text-text-muted border-b border-border-color/30 pb-2 mb-2">
+                <span>METRIC: CUMULATIVE RUN PROGRESSION</span>
+                <span>Note: Red dots indicate overs where wickets fell</span>
+              </div>
+              <WormChartWrapper
+                innings1Progress={match.scorecard.innings[0]?.over_progress || []}
+                innings2Progress={match.scorecard.innings[1]?.over_progress || []}
+                team1Name={match.scorecard.innings[0]?.batting_team || match.team_1}
+                team2Name={match.scorecard.innings[1]?.batting_team || match.team_2}
+              />
+            </div>
+          </details>
         )}
 
         {/* TACTICAL MATCH REPORT */}

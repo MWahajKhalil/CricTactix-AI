@@ -46,10 +46,20 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
             "balls": 0,
             "wickets": 0,
             "extras": 0,
+            "runs_by_over": {},
+            "wickets_by_over": {},
         })
         
         innings["runs"] += (d.runs_total or 0)
         innings["extras"] += (d.runs_extras or 0)
+        
+        # Track over progress
+        over_num = d.over_number
+        if over_num is not None:
+            innings["runs_by_over"][over_num] = innings["runs_by_over"].get(over_num, 0) + (d.runs_total or 0)
+            if d.player_out:
+                innings["wickets_by_over"][over_num] = innings["wickets_by_over"].get(over_num, 0) + 1
+
         if d.player_out:
             innings["wickets"] += 1
             innings["fall_of_wickets"].append({
@@ -141,6 +151,24 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
         
         overs = f"{innings['balls'] // 6}.{innings['balls'] % 6}" if innings["balls"] > 0 else "0.0"
         
+        # Calculate running over progress
+        cumulative_runs = 0
+        cumulative_wickets = 0
+        over_progress = []
+        runs_by_over = innings.get("runs_by_over", {})
+        wickets_by_over = innings.get("wickets_by_over", {})
+        
+        if runs_by_over:
+            max_over = max(runs_by_over.keys())
+            for o in range(max_over + 1):
+                cumulative_runs += runs_by_over.get(o, 0)
+                cumulative_wickets += wickets_by_over.get(o, 0)
+                over_progress.append({
+                    "over": o + 1,
+                    "runs": cumulative_runs,
+                    "wickets": cumulative_wickets
+                })
+        
         innings_list.append({
             "innings_number": innings["innings_number"],
             "batting_team": innings["batting_team"],
@@ -152,6 +180,7 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
             "extras": innings["extras"],
             "overs": overs,
             "fall_of_wickets": innings["fall_of_wickets"],
+            "over_progress": over_progress,
         })
     
     return innings_list

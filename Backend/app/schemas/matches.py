@@ -71,6 +71,11 @@ class FallOfWicketItem(BaseModel):
     player: str
     over: str
 
+class OverProgressItem(BaseModel):
+    over: int
+    runs: int
+    wickets: int
+
 class InningsSchema(BaseModel):
     innings_number: int
     batting_team: str
@@ -83,6 +88,8 @@ class InningsSchema(BaseModel):
     overs: str
     yet_to_bat: List[str] = []
     fall_of_wickets: List[FallOfWicketItem] = []
+    over_progress: List[OverProgressItem] = []
+
 
 
 class ScorecardSchema(BaseModel):
