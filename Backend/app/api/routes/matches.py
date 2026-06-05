@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, extract, func, or_, and_
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.delivery import Delivery
 from app.models.match import Match
@@ -396,7 +397,32 @@ def get_match_by_id(match_id: int, db: Session = Depends(get_db)):
         "umpires": umpires,
         "tv_umpire": tv_umpire,
         "match_referee": match_referee,
+        "match_report": None,
     }
+
+    # Retrieve match report if it exists
+    reports_dir = os.path.abspath(settings.REPORTS_DIR)
+    try:
+        cid = int(match.cricsheet_match_id)
+        filename = None
+        if 1527552 <= cid <= 1527591:
+            filename = f"2026_match_{(cid - 1527551):02d}_report.txt"
+        elif cid == 1527592:
+            filename = "2026_qualifier_report.txt"
+        elif cid == 1527593:
+            filename = "2026_eliminator_1_report.txt"
+        elif cid == 1527594:
+            filename = "2026_eliminator_2_report.txt"
+        elif cid == 1527595:
+            filename = "2026_final_report.txt"
+            
+        if filename:
+            filepath = os.path.join(reports_dir, filename)
+            if os.path.exists(filepath):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    match_info["match_report"] = f.read()
+    except Exception as e:
+        print(f"Error loading report: {e}")
 
     deliveries = db.query(Delivery).filter(Delivery.match_id == match.id).order_by(
         Delivery.innings_number,

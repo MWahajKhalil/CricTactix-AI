@@ -109,5 +109,7 @@ class MatchDetailResponse(BaseModel):
     umpires: Optional[List[str]] = None
     tv_umpire: Optional[str] = None
     match_referee: Optional[str] = None
+    match_report: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+

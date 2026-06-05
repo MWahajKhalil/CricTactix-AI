@@ -135,6 +135,34 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
           </div>
         </div>
 
+        {/* TACTICAL ANALYST REPORT */}
+        {match.match_report && (
+          <div className="premium-sports-card p-6 bg-bg-secondary/10 border border-border-color/60 rounded-lg shadow-lg">
+            <div className="flex items-center gap-2 border-b border-border-color pb-3 mb-4">
+              <span className="text-turf-emerald text-sm font-bold">🏏</span>
+              <h3 className="font-display text-xs font-bold uppercase tracking-widest text-header-text">
+                Tactical Analyst Match Report
+              </h3>
+              <span className="ml-auto text-[8px] font-mono text-text-muted">
+                Ingested from Cricinfo RAG
+              </span>
+            </div>
+            <div className="text-xs text-foreground/90 leading-relaxed space-y-4 font-sans max-h-[350px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-border-color scrollbar-track-transparent">
+              {match.match_report.split("\n\n").map((para: string, idx: number) => {
+                // Skip headers that are redundant
+                if (para.startsWith("Match Report:") || para.startsWith("Source URL:") || para.startsWith("Date:") || para.startsWith("Venue:")) {
+                  return null;
+                }
+                return (
+                  <p key={idx} className="text-justify font-sans leading-relaxed">
+                    {para}
+                  </p>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ADDITIONAL MATCH DETAILS DROPDOWN */}
         <details className="group premium-sports-card bg-bg-secondary/5 border border-border-color/50 rounded-lg overflow-hidden">
           <summary className="flex items-center justify-between p-4 text-xs font-bold text-text-muted cursor-pointer hover:bg-hover-bg select-none transition">
