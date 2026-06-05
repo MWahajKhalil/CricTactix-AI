@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getMatches, getTopVenues, getTopWinners } from "@/lib/api";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,16 @@ type MatchItem = {
   id: number;
   team_1: string;
   team_2: string;
-  match_type: string;
   date: string;
   venue: string;
   city: string;
   winner: string;
   has_scorecard?: boolean;
+  player_of_match?: string | null;
+  toss_winner?: string | null;
+  toss_decision?: string | null;
+  win_by_runs?: number | null;
+  win_by_wickets?: number | null;
 };
 
 type WinnerItem = {
@@ -101,33 +106,33 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
         <div className="flex flex-col gap-8">
           
           {/* HEADER BANNER */}
-          <div className="premium-sports-card p-6 md:p-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border-color pb-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest text-zinc-500 uppercase">
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest text-text-muted uppercase">
                 <span className="h-1.5 w-1.5 rounded-full bg-turf-emerald" />
                 Data Archives
               </span>
-              <h1 className="sports-heading text-2xl font-bold text-white mt-1">Match Index</h1>
-              <p className="text-xs text-zinc-400 font-mono mt-1">Total count: {count} matches active</p>
+              <h1 className="sports-heading text-2xl font-bold text-header-text mt-1.5">Match Index</h1>
+              <p className="text-xs text-text-muted font-mono mt-1">Total count: {count} matches available</p>
             </div>
-            <Link href="/dashboard" className="inline-flex items-center justify-center rounded border border-zinc-800 bg-zinc-950/80 px-4 py-2 text-xs font-semibold text-zinc-300 hover:text-white transition duration-150">
+            <Link href="/dashboard" className="inline-flex items-center justify-center rounded border border-border-color bg-bg-secondary px-4 py-2 text-xs font-semibold text-text-muted hover:text-header-text transition duration-150">
               Tournament Stats
             </Link>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[1.6fr_0.9fr]">
             
-            {/* SEARCH CONSOLE (PREMIUM GLASS STYLE) */}
-            <div className="premium-sports-card p-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-900 pb-4 mb-6">
+            {/* SEARCH CONSOLE */}
+            <div className="premium-sports-card p-6 bg-bg-secondary/10">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border-color pb-4 mb-6">
                 <div>
-                  <h2 className="sports-heading text-base text-white">Refine Matches</h2>
-                  <p className="text-zinc-500 text-[10px] font-mono mt-0.5">Filter matching database entities</p>
+                  <h2 className="sports-heading text-base text-header-text">Refine Matches</h2>
+                  <p className="text-text-muted text-[10px] font-mono mt-0.5">Filter the PSL database</p>
                 </div>
                 <button
                   type="submit"
                   form="match-filters"
-                  className="inline-flex items-center justify-center rounded bg-turf-emerald px-4 py-2 text-xs font-bold text-zinc-950 hover:bg-emerald-400 transition"
+                  className="inline-flex items-center justify-center rounded bg-turf-emerald px-4 py-2 text-xs font-bold text-white dark:text-zinc-950 hover:opacity-90 transition"
                 >
                   Apply Filters
                 </button>
@@ -135,81 +140,81 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
 
               <form id="match-filters" action="/matches" method="get" className="grid gap-4 sm:grid-cols-2 text-xs">
                 <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Query / Team</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">Query / Team</label>
                   <input
                     name="team"
                     list="team-aliases"
                     defaultValue={filters.team ?? ""}
                     placeholder="Search teams, venue, city, winner..."
-                    className="w-full rounded premium-input px-4 py-3 text-xs text-white"
+                    className="w-full rounded premium-input px-4 py-3 text-xs text-header-text"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Opponent</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">Opponent</label>
                   <input
                     name="team_2"
                     list="team-aliases"
                     defaultValue={filters.team_2 ?? ""}
                     placeholder="Opponent team..."
-                    className="w-full rounded premium-input px-4 py-3 text-xs text-white"
+                    className="w-full rounded premium-input px-4 py-3 text-xs text-header-text"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Venue</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">Venue</label>
                   <input
                     name="venue"
                     defaultValue={filters.venue ?? ""}
                     placeholder="Stadium name..."
-                    className="w-full rounded premium-input px-4 py-3 text-xs text-white"
+                    className="w-full rounded premium-input px-4 py-3 text-xs text-header-text"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">City</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">City</label>
                   <input
                     name="city"
                     defaultValue={filters.city ?? ""}
                     placeholder="City name..."
-                    className="w-full rounded premium-input px-4 py-3 text-xs text-white"
+                    className="w-full rounded premium-input px-4 py-3 text-xs text-header-text"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Winner</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">Winner</label>
                   <input
                     name="winner"
                     defaultValue={filters.winner ?? ""}
                     placeholder="Winning team..."
-                    className="w-full rounded premium-input px-4 py-3 text-xs text-white"
+                    className="w-full rounded premium-input px-4 py-3 text-xs text-header-text"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Exact Year</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">Exact Year</label>
                   <input
                     name="year"
                     defaultValue={filters.year ?? ""}
                     placeholder="E.g., 2024"
-                    className="w-full rounded premium-input px-4 py-3 text-xs text-white"
+                    className="w-full rounded premium-input px-4 py-3 text-xs text-header-text"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">Year Range</label>
+                  <label className="mb-1.5 block text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted">Year Range</label>
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       name="year_from"
                       defaultValue={filters.year_from ?? ""}
                       placeholder="From"
-                      className="w-full rounded premium-input px-3 py-3 text-xs text-center text-white"
+                      className="w-full rounded premium-input px-3 py-3 text-xs text-center text-header-text"
                     />
                     <input
                       name="year_to"
                       defaultValue={filters.year_to ?? ""}
                       placeholder="To"
-                      className="w-full rounded premium-input px-3 py-3 text-xs text-center text-white"
+                      className="w-full rounded premium-input px-3 py-3 text-xs text-center text-header-text"
                     />
                   </div>
                 </div>
@@ -221,21 +226,21 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
               </datalist>
             </div>
 
-            {/* SIDEBAR telemetry widgets */}
+            {/* SIDEBAR */}
             <div className="flex flex-col gap-6">
               
               {/* TOP WINNERS */}
               <div className="premium-sports-card p-5">
-                <p className="font-display text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-900 pb-2.5">Top Winners</p>
+                <p className="font-display text-xs font-bold uppercase tracking-widest text-header-text border-b border-border-color pb-2.5">Top Winners</p>
                 <div className="mt-4 grid gap-2">
                   {topWinners.map((item: WinnerItem) => (
                     <Link
                       key={item.team}
                       href={`/matches?winner=${encodeURIComponent(item.team)}`}
-                      className="flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-300 hover:border-turf-emerald/20 hover:text-white transition duration-150"
+                      className="flex items-center justify-between rounded border border-border-color bg-bg-secondary/40 px-4 py-2.5 text-xs text-text-muted hover:border-turf-emerald/20 hover:text-header-text transition duration-150"
                     >
                       <span className="truncate max-w-[170px]" title={item.team}>{item.team}</span>
-                      <span className="rounded bg-emerald-950/50 px-2 py-0.5 text-[9px] font-bold text-turf-emerald">{item.wins} wins</span>
+                      <span className="rounded bg-emerald-950/20 px-2 py-0.5 text-[9px] font-bold text-turf-emerald">{item.wins} wins</span>
                     </Link>
                   ))}
                 </div>
@@ -243,16 +248,16 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
 
               {/* TOP VENUES */}
               <div className="premium-sports-card p-5">
-                <p className="font-display text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-900 pb-2.5">Top Venues</p>
+                <p className="font-display text-xs font-bold uppercase tracking-widest text-header-text border-b border-border-color pb-2.5">Top Venues</p>
                 <div className="mt-4 grid gap-2">
                   {topVenues.map((item: TopVenueItem) => (
                     <Link
                       key={item.venue}
                       href={`/matches?venue=${encodeURIComponent(item.venue)}&venue_fuzzy=true`}
-                      className="flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 px-4 py-2.5 text-xs text-zinc-300 hover:border-turf-emerald/20 hover:text-white transition duration-150"
+                      className="flex items-center justify-between rounded border border-border-color bg-bg-secondary/40 px-4 py-2.5 text-xs text-text-muted hover:border-turf-emerald/20 hover:text-header-text transition duration-150"
                     >
                       <span className="truncate max-w-[170px]" title={item.venue}>{item.venue}</span>
-                      <span className="rounded bg-cyan-950/50 px-2 py-0.5 text-[9px] font-bold text-accent-cyan">{item.matches} matches</span>
+                      <span className="rounded bg-cyan-950/20 px-2 py-0.5 text-[9px] font-bold text-accent-cyan">{item.matches} matches</span>
                     </Link>
                   ))}
                 </div>
@@ -261,101 +266,131 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
             </div>
           </div>
 
-          {/* TELEMETRY RESULTS PAGINATION HEADER */}
-          <div className="premium-sports-card p-4 rounded text-xs text-zinc-400 font-mono">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded bg-zinc-950 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-accent-cyan border border-zinc-900">Page {page} of {totalPages}</span>
-                <span className="rounded bg-zinc-950 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-turf-emerald border border-zinc-900">{count} matches matched</span>
-              </div>
-              <div>Showing {Math.min(count, perPage)} results on this page</div>
+          {/* RESULTS PAGINATION HEADER */}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted font-mono border-t border-b border-border-color py-4 my-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded bg-bg-secondary px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-accent-cyan border border-border-color">Page {page} of {totalPages}</span>
+              <span className="rounded bg-bg-secondary px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-turf-emerald border border-border-color">{count} matches found</span>
             </div>
+            <div>Showing {Math.min(count, perPage)} results on this page</div>
           </div>
 
-          {/* BROADCAST TICKET MATCH CARDS */}
+          {/* MATCH CARDS GRID */}
           <div className="grid gap-6 md:grid-cols-2">
             {matches.length > 0 ? (
               matches.map((match: MatchItem) => (
                 <div
                   key={match.id}
-                  className="group premium-sports-card flex flex-col justify-between"
+                  className="sports-match-card"
                 >
-                  {/* Match ticker header */}
-                  <div className="bg-zinc-950/40 p-5 border-b border-zinc-900">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-accent-cyan px-2 py-0.5 bg-accent-cyan/10 rounded">
-                          {match.match_type || "T20"}
-                        </span>
-                        <h2 className="mt-2 font-display text-lg font-bold text-white leading-tight uppercase group-hover:text-turf-emerald transition duration-150">
-                          {match.team_1} <br />
-                          <span className="text-zinc-600 font-normal text-sm">vs</span> {match.team_2}
-                        </h2>
-                      </div>
-                      <span className="rounded border border-zinc-900 bg-zinc-950 px-2.5 py-1 text-[10px] font-mono text-zinc-500 self-start">
-                        {match.date}
+                  <div className="flex items-center justify-between text-[9px] text-text-muted font-mono border-b border-border-color pb-2 mb-3.5">
+                    <span>{formatDate(match.date)}</span>
+                    {match.player_of_match && (
+                      <span className="font-bold text-turf-emerald uppercase tracking-wider" title="Player of the Match">
+                        ★ {match.player_of_match}
                       </span>
-                    </div>
+                    )}
                   </div>
                   
-                  {/* Match stats info */}
-                  <div className="p-5 space-y-4">
-                    <div className="grid gap-2 grid-cols-3 text-[11px] font-mono">
-                      <div className="rounded bg-zinc-950/60 border border-zinc-900/50 p-2.5">
-                        <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">Venue</p>
-                        <p className="mt-1 font-bold text-white truncate" title={match.venue}>{match.venue || "Unknown"}</p>
-                      </div>
-                      <div className="rounded bg-zinc-950/60 border border-zinc-900/50 p-2.5">
-                        <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">City</p>
-                        <p className="mt-1 font-bold text-white truncate" title={match.city}>{match.city || "Unknown"}</p>
-                      </div>
-                      <div className="rounded bg-zinc-950/60 border border-zinc-900/50 p-2.5">
-                        <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">Winner</p>
-                        <p className="mt-1 font-bold text-accent-yellow truncate" title={match.winner}>{match.winner || "TBD"}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-900/50">
-                      <Link
-                        href={`/matches/${match.id}`}
-                        className="inline-flex items-center justify-center rounded border border-zinc-800 bg-zinc-950/80 px-4 py-2 text-xs font-bold text-zinc-300 hover:text-white transition duration-150"
-                      >
-                        View Scorecard &rarr;
-                      </Link>
-                      
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono">
-                        <span className={`h-1.5 w-1.5 rounded-full ${match.has_scorecard ? "bg-turf-emerald animate-pulse" : "bg-zinc-700"}`} />
-                        <span>
-                          {match.has_scorecard ? "DELIVERIES_OK" : "NO_BALL_DATA"}
+                  <div className="flex flex-col gap-2.5 py-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-display text-xs font-bold uppercase tracking-tight ${match.winner === match.team_1 ? 'text-header-text font-extrabold' : 'text-text-muted/80 font-medium'}`}>
+                        {match.team_1}
+                      </span>
+                      {match.winner === match.team_1 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-turf-emerald" />
+                          <span className="text-[8px] font-mono font-bold text-turf-emerald uppercase tracking-wider">WINNER</span>
                         </span>
-                      </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-display text-xs font-bold uppercase tracking-tight ${match.winner === match.team_2 ? 'text-header-text font-extrabold' : 'text-text-muted/80 font-medium'}`}>
+                        {match.team_2}
+                      </span>
+                      {match.winner === match.team_2 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-turf-emerald" />
+                          <span className="text-[8px] font-mono font-bold text-turf-emerald uppercase tracking-wider">WINNER</span>
+                        </span>
+                      )}
                     </div>
                   </div>
+
+                  {/* Collapsible Match Details */}
+                  <details className="group mt-4 border-t border-border-color/50 pt-2 text-[10px] font-mono">
+                    <summary className="flex items-center justify-between py-1 text-text-muted cursor-pointer hover:text-header-text select-none transition">
+                      <span className="text-[8px] font-bold uppercase tracking-wider">Match Info</span>
+                      <span className="transition-transform duration-200 group-open:rotate-180 text-[10px]">&darr;</span>
+                    </summary>
+                    <div className="mt-2 space-y-1.5 pb-2 text-foreground/90">
+                      {match.venue && (
+                        <div className="flex justify-between py-0.5 border-b border-border-color/30">
+                          <span className="text-text-muted">Venue</span>
+                          <span className="text-right truncate max-w-[150px]" title={match.venue}>{match.venue}</span>
+                        </div>
+                      )}
+                      {match.city && (
+                        <div className="flex justify-between py-0.5 border-b border-border-color/30">
+                          <span className="text-text-muted">City</span>
+                          <span>{match.city}</span>
+                        </div>
+                      )}
+                      {match.toss_winner && (
+                        <div className="flex justify-between py-0.5 border-b border-border-color/30">
+                          <span className="text-text-muted">Toss</span>
+                          <span className="text-right truncate max-w-[150px]" title={match.toss_winner}>
+                            {match.toss_winner} ({match.toss_decision === 'field' ? 'Bowl' : 'Bat'})
+                          </span>
+                        </div>
+                      )}
+                      {(match.win_by_runs || match.win_by_wickets) ? (
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-text-muted">Margin</span>
+                          <span className="font-semibold text-header-text">
+                            {match.win_by_runs ? `Won by ${match.win_by_runs} runs` : `Won by ${match.win_by_wickets} wickets`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-text-muted">Margin</span>
+                          <span className="font-semibold text-header-text">Draw/No Result</span>
+                        </div>
+                      )}
+                    </div>
+                  </details>
+
+                  <Link
+                    href={`/matches/${match.id}`}
+                    className="sports-btn mt-3 w-full text-center"
+                  >
+                    View Scorecard
+                  </Link>
                 </div>
               ))
             ) : (
-              <div className="col-span-full rounded border border-dashed border-zinc-900 bg-zinc-950/40 p-12 text-center text-zinc-500 text-xs font-mono">
+              <div className="col-span-full rounded border border-dashed border-border-color bg-bg-secondary/40 p-12 text-center text-text-muted text-xs font-mono">
                 NO MATCHES FOUND FOR SPECIFIED FILTERS.
               </div>
             )}
           </div>
 
           {/* PAGINATION PANEL */}
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded border border-zinc-900 bg-zinc-950/60 p-4 text-xs font-mono text-zinc-500">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border-color pt-6 text-xs font-mono text-text-muted">
             <div>
-              <span>PAGE CONTROL OVERLAY</span>
+              <span>PAGE NAVIGATION</span>
             </div>
 
             <div className="flex items-center gap-2">
               <Link
                 href={buildMatchPageUrl(Math.max(1, page - 1))}
-                className={`rounded border border-zinc-900 px-3 py-1.5 text-xs font-bold transition ${page === 1 ? "pointer-events-none bg-zinc-900 text-zinc-700" : "bg-white text-zinc-950 hover:bg-slate-200"}`}
+                className={`rounded border border-border-color px-3.5 py-1.5 text-[10px] font-bold uppercase transition ${page === 1 ? "pointer-events-none bg-bg-secondary text-text-muted/40" : "bg-header-text text-background hover:opacity-90"}`}
               >
                 Prev
               </Link>
               <Link
                 href={buildMatchPageUrl(Math.min(totalPages, page + 1))}
-                className={`rounded border border-zinc-900 px-3 py-1.5 text-xs font-bold transition ${page >= totalPages ? "pointer-events-none bg-zinc-900 text-zinc-700" : "bg-white text-zinc-950 hover:bg-slate-200"}`}
+                className={`rounded border border-border-color px-3.5 py-1.5 text-[10px] font-bold uppercase transition ${page >= totalPages ? "pointer-events-none bg-bg-secondary text-text-muted/40" : "bg-header-text text-background hover:opacity-90"}`}
               >
                 Next
               </Link>

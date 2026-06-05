@@ -19,6 +19,11 @@ class Delivery(Base):
     runs_batter = Column(Integer)
     runs_extras = Column(Integer)
     runs_total = Column(Integer)
+    wides = Column(Integer, default=0, nullable=True)
+    noballs = Column(Integer, default=0, nullable=True)
+    byes = Column(Integer, default=0, nullable=True)
+    legbyes = Column(Integer, default=0, nullable=True)
     wicket_type = Column(String(100), nullable=True)
     player_out = Column(String(255), nullable=True)
     phase = Column(String(50), nullable=True)
+

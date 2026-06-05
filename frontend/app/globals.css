@@ -1,28 +1,61 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #090a0f; /* Matte dark obsidian */
-  --foreground: #f1f5f9; /* Soft gray-white text */
-  --card-bg: rgba(14, 18, 27, 0.8);
-  --border-color: rgba(255, 255, 255, 0.06);
+  --background: #f8fafc; /* Premium clean slate background */
+  --foreground: #334155; /* Readable slate text */
+  --header-text: #0f172a; /* Slate 900 for headings */
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --border-color: rgba(15, 23, 42, 0.06);
+  --input-bg: rgba(255, 255, 255, 0.95);
+  --shadow-color: rgba(15, 23, 42, 0.03);
+  --text-muted: #64748b;
+  --bg-secondary: #f1f5f9;
+  --hover-bg: rgba(15, 23, 42, 0.02);
   
-  /* Cricviz Palette */
+  /* Cricviz Palette (Light friendly variants) */
+  --turf-emerald: #0fa968;  /* Rich organic emerald */
+  --ball-crimson: #e11d48;  /* Clean cricket ball rose/red */
+  --metric-amber: #d97706;  /* Warm telemetry amber */
+  --accent-cyan: #0891b2;   /* Telemetry cyan */
+  
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-plus-jakarta), system-ui, sans-serif;
+}
+
+:where(.dark, .dark *) {
+  --background: #0d0e12; /* Rich deep charcoal-obsidian */
+  --foreground: #cbd5e1; /* Soft gray-white text (slate-300) for readability */
+  --header-text: #f8fafc; /* Near-white headings for softer contrast */
+  --card-bg: rgba(18, 20, 28, 0.7); /* Deep elegant card background */
+  --border-color: rgba(255, 255, 255, 0.05); /* Softest visible border */
+  --input-bg: rgba(10, 11, 15, 0.8);
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --text-muted: #64748b; /* Muted slate gray */
+  --bg-secondary: rgba(18, 20, 28, 0.4);
+  --hover-bg: rgba(255, 255, 255, 0.01);
+  
+  /* Cricviz Palette (Dark friendly variants) */
   --turf-emerald: #10b981;  /* Opta/Cricviz signature green */
   --ball-crimson: #f43f5e;  /* Flat cricket ball crimson */
   --metric-amber: #f59e0b;  /* Warm telemetry amber */
   --accent-cyan: #06b6d4;   /* Telemetry cyan */
-  
-  --font-sans: var(--font-plus-jakarta), system-ui, sans-serif;
-  --font-display: var(--font-space-grotesk), system-ui, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-header-text: var(--header-text);
+  --color-text-muted: var(--text-muted);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-border-color: var(--border-color);
+  
   --color-turf-emerald: var(--turf-emerald);
   --color-ball-crimson: var(--ball-crimson);
   --color-metric-amber: var(--metric-amber);
   --color-accent-cyan: var(--accent-cyan);
+  
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
 }
@@ -35,12 +68,21 @@ html {
 body {
   min-height: 100%;
   background: 
-    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08), transparent 45%),
-    radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.03), transparent 35%),
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.04), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.02), transparent 35%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Redefine body radial gradients for dark mode for extra contrast */
+:where(.dark, .dark *) body {
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.03), transparent 35%),
+    var(--background);
 }
 
 /* Premium Scrollbar */
@@ -50,11 +92,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #040507;
+  background: var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-color);
   border-radius: 99px;
 }
 
@@ -62,30 +104,38 @@ body {
   background: var(--turf-emerald);
 }
 
+/* Premium Sports Heading */
+.sports-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--header-text);
+}
+
 /* Premium Glassmorphic Sports Card */
 .premium-sports-card {
   background: var(--card-bg);
-  backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  box-shadow: 
-    0 10px 30px -10px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0.75rem; /* Clean 12px corners */
+  box-shadow: 0 1px 3px var(--shadow-color);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .premium-sports-card:hover {
   border-color: rgba(16, 185, 129, 0.15);
-  box-shadow: 
-    0 20px 40px -15px rgba(0, 0, 0, 0.6),
-    0 0 20px -5px rgba(16, 185, 129, 0.05);
+  box-shadow: 0 4px 16px var(--shadow-color);
+}
+
+:where(.dark, .dark *) .premium-sports-card:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 /* Sports Broadcast Score Ticker Header */
 .broadcast-header-ticker {
-  background: #0b0e14;
-  border-bottom: 2px solid var(--border-color);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 1px 2px var(--shadow-color);
 }
 
 /* Minimal Table Styles */
@@ -100,30 +150,90 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #6b7280;
+  color: var(--text-muted);
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .premium-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .premium-table tr:hover td {
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--hover-bg);
 }
 
 /* Input Fields */
 .premium-input {
-  background: rgba(4, 5, 8, 0.7);
+  background: var(--input-bg);
   border: 1px solid var(--border-color);
   outline: none;
   font-size: 0.8125rem;
+  border-radius: 0.375rem;
   transition: all 0.2s ease;
 }
 
 .premium-input:focus {
   border-color: var(--turf-emerald);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
 }
+
+/* Sports Match Card (Premium inner cards) */
+.sports-match-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem; /* Clean professional 8px rounded corners */
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sports-match-card:hover {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+:where(.dark, .dark *) .sports-match-card {
+  background: rgba(18, 20, 28, 0.5);
+}
+
+:where(.dark, .dark *) .sports-match-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Sports Button Utilities */
+.sports-btn {
+  display: block;
+  text-align: center;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--foreground);
+  transition: all 0.15s ease;
+}
+
+.sports-btn:hover {
+  background: var(--header-text);
+  color: var(--background) !important;
+  border-color: var(--header-text);
+}
+
+:where(.dark, .dark *) .sports-btn:hover {
+  background: var(--header-text);
+  color: var(--background) !important;
+  border-color: var(--header-text);
+}
+
+
+

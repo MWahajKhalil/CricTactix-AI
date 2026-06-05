@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getMatches, getTopVenues, getTopWinners } from "@/lib/api";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -7,9 +8,15 @@ type MatchItem = {
   id: number;
   team_1: string;
   team_2: string;
-  match_type: string;
   date: string;
   winner: string;
+  venue?: string;
+  city?: string;
+  player_of_match?: string | null;
+  toss_winner?: string | null;
+  toss_decision?: string | null;
+  win_by_runs?: number | null;
+  win_by_wickets?: number | null;
 };
 
 type WinnerItem = {
@@ -49,19 +56,19 @@ export default async function DashboardPage() {
   return (
     <div className="relative overflow-hidden py-12">
       <div className="mx-auto max-w-6xl px-6 sm:px-8 lg:px-12">
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-10">
           
-          {/* PREMIUM BANNER HEADER */}
-          <div className="premium-sports-card p-6 md:p-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          {/* BANNER HEADER */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border-color pb-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest text-zinc-500 uppercase">
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest text-turf-emerald uppercase">
                 <span className="h-1.5 w-1.5 rounded-full bg-turf-emerald" />
-                Tournament Statistics
+                Tournament Stats
               </span>
-              <h1 className="sports-heading text-2xl md:text-3xl font-bold text-white mt-1">Analytics Dashboard</h1>
-              <p className="text-xs text-zinc-400 font-mono mt-1">Data Index: SQLite &bull; PSL_T20</p>
+              <h1 className="font-display text-2xl md:text-3xl font-bold text-header-text mt-1.5">Analytics Dashboard</h1>
+              <p className="text-xs text-text-muted font-mono mt-1">Data Source: SQLite Database &bull; PSL_T20</p>
             </div>
-            <Link href="/matches" className="inline-flex items-center justify-center rounded bg-turf-emerald px-4 py-2.5 text-xs font-bold text-zinc-950 hover:bg-emerald-400 transition">
+            <Link href="/matches" className="inline-flex items-center justify-center rounded bg-header-text px-4 py-2 text-xs font-semibold text-background hover:opacity-90 transition">
               Browse Matches
             </Link>
           </div>
@@ -69,24 +76,24 @@ export default async function DashboardPage() {
           {/* TELEMETRY METRIC WIDGETS */}
           <div className="grid gap-4 sm:grid-cols-3">
             
-            <div className="premium-sports-card p-6 border-l-2 border-l-turf-emerald">
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">Matches Loaded</p>
-              <p className="mt-4 font-display text-4xl font-extrabold text-white tracking-tight">{count}</p>
-              <span className="mt-2 inline-block text-[9px] font-mono text-zinc-600">DB Cumulative</span>
+            <div className="premium-sports-card p-6 border-l-2 border-l-turf-emerald bg-bg-secondary/10">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">Matches Loaded</p>
+              <p className="mt-4 font-display text-4xl font-extrabold text-header-text tracking-tight">{count}</p>
+              <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">DB Cumulative</span>
             </div>
 
-            <div className="premium-sports-card p-6 border-l-2 border-l-accent-cyan">
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">Franchises Active</p>
-              <p className="mt-4 font-display text-4xl font-extrabold text-white tracking-tight">{Object.keys(teamCounts).length}</p>
-              <span className="mt-2 inline-block text-[9px] font-mono text-zinc-600">Represented in Matches</span>
+            <div className="premium-sports-card p-6 border-l-2 border-l-accent-cyan bg-bg-secondary/10">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">Franchises Active</p>
+              <p className="mt-4 font-display text-4xl font-extrabold text-header-text tracking-tight">{Object.keys(teamCounts).length}</p>
+              <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">Represented in Matches</span>
             </div>
 
-            <div className="premium-sports-card p-6 border-l-2 border-l-metric-amber">
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500">Primary Match Venue</p>
-              <p className="mt-4 font-display text-base font-bold text-white truncate leading-tight uppercase" title={topVenues[0]?.venue}>
+            <div className="premium-sports-card p-6 border-l-2 border-l-metric-amber bg-bg-secondary/10">
+              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">Primary Match Venue</p>
+              <p className="mt-4 font-display text-sm font-bold text-header-text truncate leading-tight uppercase" title={topVenues[0]?.venue}>
                 {topVenues[0]?.venue || "N/A"}
               </p>
-              <span className="mt-2 inline-block text-[10px] font-mono font-bold text-metric-amber">
+              <span className="mt-2.5 inline-block text-[10px] font-mono font-bold text-metric-amber">
                 {topVenues[0]?.matches || 0} Matches Played
               </span>
             </div>
@@ -98,22 +105,22 @@ export default async function DashboardPage() {
             
             {/* PARTICIPATING TEAMS */}
             <div className="premium-sports-card p-5">
-              <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4 text-[10px]">
-                <span className="font-display font-bold text-white uppercase tracking-wider">TEAM PARTICIPATION</span>
-                <span className="font-mono text-zinc-500">MATCHES</span>
+              <div className="flex items-center justify-between border-b border-border-color pb-3 mb-4 text-[9px]">
+                <span className="font-display font-bold text-header-text uppercase tracking-wider">TEAM PARTICIPATION</span>
+                <span className="font-mono text-text-muted">MATCHES</span>
               </div>
               <div className="space-y-4">
                 {topTeams.map(([team, val], index) => (
                   <div key={team} className="space-y-1.5 font-mono text-xs">
-                    <div className="flex items-center justify-between text-zinc-300">
+                    <div className="flex items-center justify-between text-foreground">
                       <span className="flex items-center gap-2">
-                        <span className="text-zinc-600 font-bold">[{index + 1}]</span>
-                        <span className="font-sans font-semibold text-white uppercase truncate max-w-[150px]">{team}</span>
+                        <span className="text-text-muted font-bold">[{index + 1}]</span>
+                        <span className="font-sans font-semibold text-header-text uppercase truncate max-w-[150px]">{team}</span>
                       </span>
                       <span className="font-bold text-accent-cyan">{val}</span>
                     </div>
                     {/* Meter bar */}
-                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-bg-secondary rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-accent-cyan rounded-full" 
                         style={{ width: `${(val / maxTeamAppearances) * 100}%` }}
@@ -126,22 +133,22 @@ export default async function DashboardPage() {
 
             {/* TOP WINNERS */}
             <div className="premium-sports-card p-5">
-              <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4 text-[10px]">
-                <span className="font-display font-bold text-white uppercase tracking-wider">WIN LEADERS</span>
-                <span className="font-mono text-zinc-500">WINS</span>
+              <div className="flex items-center justify-between border-b border-border-color pb-3 mb-4 text-[9px]">
+                <span className="font-display font-bold text-header-text uppercase tracking-wider">WIN LEADERS</span>
+                <span className="font-mono text-text-muted">WINS</span>
               </div>
               <div className="space-y-4">
                 {topWinners.map((item: WinnerItem, index: number) => (
                   <div key={item.team} className="space-y-1.5 font-mono text-xs">
-                    <div className="flex items-center justify-between text-zinc-300">
+                    <div className="flex items-center justify-between text-foreground">
                       <span className="flex items-center gap-2">
-                        <span className="text-zinc-600 font-bold">[{index + 1}]</span>
-                        <span className="font-sans font-semibold text-white uppercase truncate max-w-[150px]">{item.team}</span>
+                        <span className="text-text-muted font-bold">[{index + 1}]</span>
+                        <span className="font-sans font-semibold text-header-text uppercase truncate max-w-[150px]">{item.team}</span>
                       </span>
                       <span className="font-bold text-turf-emerald">{item.wins}</span>
                     </div>
                     {/* Meter bar */}
-                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-bg-secondary rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-turf-emerald rounded-full" 
                         style={{ width: `${(item.wins / maxWins) * 100}%` }}
@@ -154,22 +161,22 @@ export default async function DashboardPage() {
 
             {/* TOP VENUES */}
             <div className="premium-sports-card p-5">
-              <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4 text-[10px]">
-                <span className="font-display font-bold text-white uppercase tracking-wider">VENUE FREQUENCY</span>
-                <span className="font-mono text-zinc-500">COUNT</span>
+              <div className="flex items-center justify-between border-b border-border-color pb-3 mb-4 text-[9px]">
+                <span className="font-display font-bold text-header-text uppercase tracking-wider">VENUE FREQUENCY</span>
+                <span className="font-mono text-text-muted">COUNT</span>
               </div>
               <div className="space-y-4">
                 {topVenues.map((item: TopVenueItem, index: number) => (
                   <div key={item.venue} className="space-y-1.5 font-mono text-xs">
-                    <div className="flex items-center justify-between text-zinc-300">
+                    <div className="flex items-center justify-between text-foreground">
                       <span className="flex items-center gap-2">
-                        <span className="text-zinc-600 font-bold">[{index + 1}]</span>
-                        <span className="font-sans font-semibold text-white uppercase truncate max-w-[150px]">{item.venue}</span>
+                        <span className="text-text-muted font-bold">[{index + 1}]</span>
+                        <span className="font-sans font-semibold text-header-text uppercase truncate max-w-[150px]">{item.venue}</span>
                       </span>
                       <span className="font-bold text-metric-amber">{item.matches}</span>
                     </div>
                     {/* Meter bar */}
-                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-bg-secondary rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-metric-amber rounded-full" 
                         style={{ width: `${(item.matches / maxMatchesVenue) * 100}%` }}
@@ -183,38 +190,102 @@ export default async function DashboardPage() {
           </div>
 
           {/* RECENT MATCH LOG */}
-          <div className="premium-sports-card p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-900 pb-4 mb-6">
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-border-color pb-4">
               <div>
-                <h2 className="sports-heading text-base text-white">Telemetry Match Log</h2>
-                <p className="text-zinc-500 text-[10px] font-mono mt-0.5">Index of recent matches</p>
+                <h2 className="font-display text-xl font-bold text-header-text">Match Telemetry Log</h2>
+                <p className="text-text-muted text-[10px] font-mono mt-0.5">Historical index of ingested PSL fixtures</p>
               </div>
-              <Link href="/matches" className="text-xs font-bold text-accent-cyan hover:underline">
-                Full Index &rarr;
+              <Link href="/matches" className="text-xs font-bold text-turf-emerald hover:underline">
+                Full Matches Index &rarr;
               </Link>
             </div>
-            
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
               {matches.slice(0, 6).map((match: MatchItem) => (
                 <div
                   key={match.id}
-                  className="rounded border border-zinc-900 bg-zinc-950/60 p-4.5 flex flex-col justify-between"
+                  className="sports-match-card"
                 >
-                  <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono mb-3">
-                    <span>{match.date}</span>
-                    <span className="font-bold uppercase text-accent-cyan">{match.match_type || "T20"}</span>
+                  <div className="flex items-center justify-between text-[9px] text-text-muted font-mono border-b border-border-color pb-2 mb-3.5">
+                    <span>{formatDate(match.date)}</span>
+                    {match.player_of_match && (
+                      <span className="font-bold text-turf-emerald uppercase tracking-wider" title="Player of the Match">
+                        ★ {match.player_of_match}
+                      </span>
+                    )}
                   </div>
-                  <h3 className="font-display text-sm font-bold text-white leading-tight uppercase">
-                    {match.team_1} <br />
-                    <span className="text-zinc-600 font-normal text-xs">vs</span> {match.team_2}
-                  </h3>
-                  <div className="mt-4 flex items-center justify-between text-[11px] pt-2 border-t border-zinc-900/50">
-                    <span className="text-zinc-500">Winner:</span>
-                    <span className="font-bold text-white uppercase tracking-tight">{match.winner || "TBD"}</span>
+                  
+                  <div className="flex flex-col gap-2.5 py-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-display text-xs font-bold uppercase tracking-tight ${match.winner === match.team_1 ? 'text-header-text font-extrabold' : 'text-text-muted/80 font-medium'}`}>
+                        {match.team_1}
+                      </span>
+                      {match.winner === match.team_1 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-turf-emerald" />
+                          <span className="text-[8px] font-mono font-bold text-turf-emerald uppercase tracking-wider">WINNER</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-display text-xs font-bold uppercase tracking-tight ${match.winner === match.team_2 ? 'text-header-text font-extrabold' : 'text-text-muted/80 font-medium'}`}>
+                        {match.team_2}
+                      </span>
+                      {match.winner === match.team_2 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-turf-emerald" />
+                          <span className="text-[8px] font-mono font-bold text-turf-emerald uppercase tracking-wider">WINNER</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Collapsible Match Details */}
+                  <details className="group mt-4 border-t border-border-color/50 pt-2 text-[10px] font-mono">
+                    <summary className="flex items-center justify-between py-1 text-text-muted cursor-pointer hover:text-header-text select-none transition">
+                      <span className="text-[8px] font-bold uppercase tracking-wider">Match Info</span>
+                      <span className="transition-transform duration-200 group-open:rotate-180 text-[10px]">&darr;</span>
+                    </summary>
+                    <div className="mt-2 space-y-1.5 pb-2 text-foreground/90">
+                      {match.venue && (
+                        <div className="flex justify-between py-0.5 border-b border-border-color/30">
+                          <span className="text-text-muted">Venue</span>
+                          <span className="text-right truncate max-w-[150px]" title={match.venue}>{match.venue}</span>
+                        </div>
+                      )}
+                      {match.city && (
+                        <div className="flex justify-between py-0.5 border-b border-border-color/30">
+                          <span className="text-text-muted">City</span>
+                          <span>{match.city}</span>
+                        </div>
+                      )}
+                      {match.toss_winner && (
+                        <div className="flex justify-between py-0.5 border-b border-border-color/30">
+                          <span className="text-text-muted">Toss</span>
+                          <span className="text-right truncate max-w-[150px]" title={match.toss_winner}>
+                            {match.toss_winner} ({match.toss_decision === 'field' ? 'Bowl' : 'Bat'})
+                          </span>
+                        </div>
+                      )}
+                      {(match.win_by_runs || match.win_by_wickets) ? (
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-text-muted">Margin</span>
+                          <span className="font-semibold text-header-text">
+                            {match.win_by_runs ? `Won by ${match.win_by_runs} runs` : `Won by ${match.win_by_wickets} wickets`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between py-0.5">
+                          <span className="text-text-muted">Margin</span>
+                          <span className="font-semibold text-header-text">Draw/No Result</span>
+                        </div>
+                      )}
+                    </div>
+                  </details>
+
                   <Link
                     href={`/matches/${match.id}`}
-                    className="mt-3 block text-center rounded border border-zinc-800 bg-zinc-950/80 py-1.5 text-[10px] font-bold text-zinc-300 hover:text-white transition duration-150"
+                    className="sports-btn mt-3 text-center"
                   >
                     View Details
                   </Link>
@@ -228,3 +299,5 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
+

@@ -413,6 +413,80 @@ def get_matchup_stats(batter_name: str, bowler_name: str) -> str:
     finally:
         db.close()
 
+@tool
+def get_team_stats(
+    team_name: str,
+    venue: Optional[str] = None,
+    year: Optional[int] = None
+) -> str:
+    """
+    Get aggregated match statistics (matches played, won, lost, tied) for a specific team.
+    Use this tool whenever a question asks for a team's wins, losses, total matches played, 
+    or overall win/loss record, especially when filters like venue or year are specified.
+    
+    Args:
+        team_name: The name or partial name of the team (e.g. 'Karachi Kings', 'Peshawar Zalmi', 'karachi', 'lahore').
+        venue: Optional stadium or city filter (e.g. 'Gaddafi Stadium' or 'Lahore').
+        year: Optional calendar year filter (e.g. 2020, 2024).
+        
+    Returns:
+        A JSON string containing the team's summary statistics.
+    """
+    db = SessionLocal()
+    try:
+        # Resolve team name to canonical name from the database Team table
+        db_team = db.query(Team).filter(
+            (Team.name.ilike(f"%{team_name}%")) | (Team.short_name.ilike(f"%{team_name}%"))
+        ).first()
+        canonical_team = db_team.name if db_team else team_name
+        
+        # Build query for matches played by the team
+        query = db.query(Match).filter(
+            (Match.team_1 == canonical_team) | (Match.team_2 == canonical_team)
+        )
+        
+        # Apply venue filter if provided
+        if venue:
+            normalized_v = normalize_venue_name(venue)
+            query = query.filter(Match.venue.ilike(f"%{normalized_v}%"))
+            
+        # Apply year filter if provided
+        if year:
+            query = query.filter(extract('year', Match.start_date) == year)
+            
+        matches = query.all()
+        played = len(matches)
+        won = 0
+        lost = 0
+        tied = 0
+        
+        for m in matches:
+            if m.winner == canonical_team:
+                won += 1
+            elif m.winner == "Draw/Tie":
+                tied += 1
+            else:
+                lost += 1
+                
+        response_data = {
+            "team_name": canonical_team,
+            "filters_applied": {
+                "venue": venue,
+                "year": year
+            },
+            "stats": {
+                "played": played,
+                "won": won,
+                "lost": lost,
+                "tied": tied
+            }
+        }
+        return json.dumps(response_data, indent=2)
+    except Exception as e:
+        return f"Error retrieving team stats: {str(e)}"
+    finally:
+        db.close()
+
 AGENT_PROMPT_PREFIX = """
 You are CricTactix AI, a helpful and premium cricket tactical analyst SQL agent.
 Use only the database tables and columns described below, or call the provided custom tools when appropriate.
@@ -421,6 +495,7 @@ CRITICAL RULES FOR RETRIEVING CRICKET STATS (YOU MUST FOLLOW THESE):
 1. **Prefer Custom Tools**:
    - For player statistics (runs, strike rates, averages, wickets, boundaries, etc.), you MUST call `get_player_stats` instead of writing SQL queries.
    - For head-to-head match-up statistics (e.g., batsman vs bowler), you MUST call `get_matchup_stats` instead of writing SQL queries.
+   - For team wins, losses, ties, or total matches played, you MUST call `get_team_stats` instead of writing SQL queries.
    - If you are unsure of the spelling of a player's name (e.g., "Shaheen" or "Fakhar"), first call `find_players` with a partial name query to get the correct name.
    - Only write raw SQL queries for match-level statistics, venue summaries, team standings, or general queries not covered by the custom tools.
 
@@ -446,7 +521,7 @@ Top {top_k} rows are available from the database.
 
 AGENT_SUFFIX = """
 CRITICAL RULES FOR CALCULATING CRICKET STATS (YOU MUST OBEY THESE):
-1. **Prefer Custom Tools**: For player statistics or matchups, you MUST call `get_player_stats` or `get_matchup_stats` or `find_players` instead of writing raw SQL queries.
+1. **Prefer Custom Tools**: For player statistics, matchups, or team win/loss records, you MUST call `get_player_stats`, `get_matchup_stats`, `get_team_stats`, or `find_players` instead of writing raw SQL queries.
 2. **Bowler Wickets (If writing raw SQL)**: Count deliveries where bowler matches AND wicket_type is one of: 'bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'. Do not count run outs/retired outs.
 3. **Batsman Runs (If writing raw SQL)**: SUM the `runs_batter` column.
 4. **Name Matching (If writing raw SQL)**: ALWAYS use case-insensitive `LIKE` patterns.
@@ -467,7 +542,7 @@ async def chat_with_agent(request: ChatRequest):
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
         # Register custom tools to supplement database SQL access
-        extra_tools = [find_players, get_player_stats, get_matchup_stats]
+        extra_tools = [find_players, get_player_stats, get_matchup_stats, get_team_stats]
 
         agent_executor = create_sql_agent(
             llm=llm,
@@ -486,4 +561,5 @@ async def chat_with_agent(request: ChatRequest):
     except Exception as e:
         print(f"Agent Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 

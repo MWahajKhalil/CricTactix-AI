@@ -39,6 +39,9 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
             "bowling_team": d.bowling_team,
             "batting": {},
             "bowling": {},
+            "batting_order": [],
+            "bowler_order": [],
+            "fall_of_wickets": [],
             "runs": 0,
             "balls": 0,
             "wickets": 0,
@@ -49,23 +52,59 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
         innings["extras"] += (d.runs_extras or 0)
         if d.player_out:
             innings["wickets"] += 1
+            innings["fall_of_wickets"].append({
+                "wicket_number": innings["wickets"],
+                "score": innings["runs"],
+                "player": d.player_out,
+                "over": f"{d.over_number}.{d.ball_number}"
+            })
         
         # Track batting stats
         batter = d.batter or "Unknown"
-        batting = innings["batting"].setdefault(batter, {"runs": 0, "balls": 0})
-        batting["runs"] += (d.runs_batter or 0)
+        non_striker = d.non_striker
         
-        is_wide = (d.runs_extras or 0) > 0 and (d.runs_batter or 0) == 0 and d.wicket_type is None and (d.runs_total or 0) > 0
+        # Track chronological order of batsman appearance
+        batting_order = innings["batting_order"]
+        if batter not in batting_order and batter != "Unknown":
+            batting_order.append(batter)
+        if non_striker and non_striker not in batting_order and non_striker != "Unknown":
+            batting_order.append(non_striker)
+            
+        # Ensure players are initialized in batting dict
+        innings["batting"].setdefault(batter, {"runs": 0, "balls": 0})
+        if non_striker and non_striker != "Unknown":
+            innings["batting"].setdefault(non_striker, {"runs": 0, "balls": 0})
+            
+        innings["batting"][batter]["runs"] += (d.runs_batter or 0)
+        
+        # Wides do not count as a ball faced for the batsman
+        is_wide = (d.wides or 0) > 0
+        is_noball = (d.noballs or 0) > 0
+        is_legal_ball = not (is_wide or is_noball)
+        
         if not is_wide:
-            batting["balls"] += 1
-            innings["balls"] += 1
-        
+            innings["batting"][batter]["balls"] += 1
+            
         # Track bowling stats
         bowler = d.bowler or "Unknown"
+        
+        # Track chronological order of bowler introduction
+        bowler_order = innings["bowler_order"]
+        if bowler not in bowler_order and bowler != "Unknown":
+            bowler_order.append(bowler)
+            
         bowling = innings["bowling"].setdefault(bowler, {"runs_conceded": 0, "balls": 0, "wickets": 0})
-        bowling["runs_conceded"] += (d.runs_total or 0)
-        if not is_wide:
+        
+        # Bowler does not concede runs from field byes and legbyes
+        byes = d.byes or 0
+        legbyes = d.legbyes or 0
+        conceded = (d.runs_total or 0) - byes - legbyes
+        bowling["runs_conceded"] += conceded
+        
+        if is_legal_ball:
             bowling["balls"] += 1
+            innings["balls"] += 1
+            
         if d.wicket_type in ('bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket'):
             bowling["wickets"] += 1
     
@@ -74,16 +113,30 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
     for innings_number in sorted(innings_map):
         innings = innings_map[innings_number]
         
-        # Format batting
+        # Format batting sorted by chronological entry order
+        batting_order = innings.get("batting_order", [])
+        def get_batting_index(player_name):
+            try:
+                return batting_order.index(player_name)
+            except ValueError:
+                return len(batting_order)
+                
         batting_list = [
-            calculate_batting_stats(player, stats)
-            for player, stats in sorted(innings["batting"].items(), key=lambda x: (-x[1]["runs"], x[0]))
+            calculate_batting_stats(player, innings["batting"][player])
+            for player in sorted(innings["batting"].keys(), key=get_batting_index)
         ]
         
-        # Format bowling
+        # Format bowling sorted by chronological bowling introduction order
+        bowler_order = innings.get("bowler_order", [])
+        def get_bowling_index(player_name):
+            try:
+                return bowler_order.index(player_name)
+            except ValueError:
+                return len(bowler_order)
+                
         bowling_list = [
-            calculate_bowling_stats(player, stats)
-            for player, stats in sorted(innings["bowling"].items(), key=lambda x: (-x[1]["wickets"], x[0]))
+            calculate_bowling_stats(player, innings["bowling"][player])
+            for player in sorted(innings["bowling"].keys(), key=get_bowling_index)
         ]
         
         overs = f"{innings['balls'] // 6}.{innings['balls'] % 6}" if innings["balls"] > 0 else "0.0"
@@ -98,9 +151,11 @@ def build_scorecard_from_deliveries(deliveries: List[Delivery]) -> List[Dict[str
             "wickets": innings["wickets"],
             "extras": innings["extras"],
             "overs": overs,
+            "fall_of_wickets": innings["fall_of_wickets"],
         })
     
     return innings_list
+
 
 def get_highest_run_scorer(db: Session) -> Optional[Dict[str, Any]]:
     """Return highest run scorer of all matches in the database (cumulative total)."""

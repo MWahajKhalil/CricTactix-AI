@@ -179,6 +179,7 @@ def load_match_data():
                         for ball_idx, delivery in enumerate(over_data.get("deliveries", [])):
                             runs = delivery.get("runs", {})
                             wickets = delivery.get("wickets", [])
+                            extras = delivery.get("extras", {}) or {}
 
                             deliveries_to_insert.append(Delivery(
                                 match_id=new_match.id,
@@ -193,10 +194,15 @@ def load_match_data():
                                 runs_batter=runs.get("batter", 0),
                                 runs_extras=runs.get("extras", 0),
                                 runs_total=runs.get("total", 0),
+                                wides=extras.get("wides", 0),
+                                noballs=extras.get("noballs", 0),
+                                byes=extras.get("byes", 0),
+                                legbyes=extras.get("legbyes", 0),
                                 wicket_type=wickets[0].get("kind") if wickets else None,
                                 player_out=wickets[0].get("player_out") if wickets else None,
                                 phase=phase
                             ))
+
 
                 # Batch save match deliveries
                 db.bulk_save_objects(deliveries_to_insert)

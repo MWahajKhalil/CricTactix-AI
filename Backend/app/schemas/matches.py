@@ -13,6 +13,12 @@ class MatchSummary(BaseModel):
     venue: Optional[str] = None
     city: Optional[str] = None
     has_scorecard: bool
+    player_of_match: Optional[str] = None
+    toss_winner: Optional[str] = None
+    toss_decision: Optional[str] = None
+    win_by_runs: Optional[int] = None
+    win_by_wickets: Optional[int] = None
+    season: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,6 +56,12 @@ class BowlingStat(BaseModel):
     wickets: int
     economy: float
 
+class FallOfWicketItem(BaseModel):
+    wicket_number: int
+    score: int
+    player: str
+    over: str
+
 class InningsSchema(BaseModel):
     innings_number: int
     batting_team: str
@@ -60,6 +72,9 @@ class InningsSchema(BaseModel):
     wickets: int
     extras: int
     overs: str
+    yet_to_bat: List[str] = []
+    fall_of_wickets: List[FallOfWicketItem] = []
+
 
 class ScorecardSchema(BaseModel):
     innings: List[InningsSchema]
@@ -75,5 +90,15 @@ class MatchDetailResponse(BaseModel):
     venue: Optional[str] = None
     city: Optional[str] = None
     scorecard: Optional[ScorecardSchema] = None
+
+    player_of_match: Optional[str] = None
+    toss_winner: Optional[str] = None
+    toss_decision: Optional[str] = None
+    win_by_runs: Optional[int] = None
+    win_by_wickets: Optional[int] = None
+    season: Optional[str] = None
+    umpires: Optional[List[str]] = None
+    tv_umpire: Optional[str] = None
+    match_referee: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
