@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite:///./cricket_ai.db"
     OPENAI_API_KEY: str | None = None
+    CHROMA_DB_PATH: str = "./Backend/data/chroma_db"
+    REPORTS_DIR: str = "./Backend/data/reports"
 
     def __init__(self, **values):
         super().__init__(**values)
