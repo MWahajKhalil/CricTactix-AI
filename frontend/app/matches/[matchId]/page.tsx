@@ -135,34 +135,6 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
           </div>
         </div>
 
-        {/* TACTICAL ANALYST REPORT */}
-        {match.match_report && (
-          <div className="premium-sports-card p-6 bg-bg-secondary/10 border border-border-color/60 rounded-lg shadow-lg">
-            <div className="flex items-center gap-2 border-b border-border-color pb-3 mb-4">
-              <span className="text-turf-emerald text-sm font-bold">🏏</span>
-              <h3 className="font-display text-xs font-bold uppercase tracking-widest text-header-text">
-                Tactical Analyst Match Report
-              </h3>
-              <span className="ml-auto text-[8px] font-mono text-text-muted">
-                Ingested from Cricinfo RAG
-              </span>
-            </div>
-            <div className="text-xs text-foreground/90 leading-relaxed space-y-4 font-sans max-h-[350px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-border-color scrollbar-track-transparent">
-              {match.match_report.split("\n\n").map((para: string, idx: number) => {
-                // Skip headers that are redundant
-                if (para.startsWith("Match Report:") || para.startsWith("Source URL:") || para.startsWith("Date:") || para.startsWith("Venue:")) {
-                  return null;
-                }
-                return (
-                  <p key={idx} className="text-justify font-sans leading-relaxed">
-                    {para}
-                  </p>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* ADDITIONAL MATCH DETAILS DROPDOWN */}
         <details className="group premium-sports-card bg-bg-secondary/5 border border-border-color/50 rounded-lg overflow-hidden">
           <summary className="flex items-center justify-between p-4 text-xs font-bold text-text-muted cursor-pointer hover:bg-hover-bg select-none transition">
@@ -211,6 +183,59 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
           <div className="premium-sports-card p-12 text-center bg-bg-secondary/10">
             <p className="font-mono text-xs text-text-muted tracking-widest">BALL_BY_BALL_RECORDING_UNAVAILABLE</p>
           </div>
+        )}
+
+        {/* TACTICAL MATCH REPORT */}
+        {match.match_report && (
+          <details className="group premium-sports-card bg-bg-secondary/5 border border-border-color/50 rounded-lg overflow-hidden">
+            <summary className="flex items-center justify-between p-4 text-xs font-bold text-text-muted cursor-pointer hover:bg-hover-bg select-none transition">
+              <span className="font-display uppercase tracking-widest flex items-center gap-2">
+                <span className="text-turf-emerald text-sm">🏏</span>
+                Tactical Analyst Match Report
+              </span>
+              <span className="transition-transform duration-200 group-open:rotate-180 text-text-muted font-mono font-bold text-[14px]">
+                &darr;
+              </span>
+            </summary>
+            <div className="p-6 border-t border-border-color/40 bg-bg-secondary/10 flex flex-col gap-4 text-xs">
+              <div className="flex items-center justify-between text-[9px] font-mono text-text-muted border-b border-border-color/30 pb-2 mb-2">
+                <span>ANALYSIS MODE: HYBRID RAG</span>
+                <span>Source: ESPNcricinfo Archives</span>
+              </div>
+              <div className="text-foreground/90 leading-relaxed space-y-4 font-sans">
+                {match.match_report.split("\n\n").map((para: string, idx: number) => {
+                  const pText = para.trim();
+                  if (!pText) return null;
+                  
+                  // Skip redundant headers
+                  if (
+                    pText.startsWith("Match Report:") ||
+                    pText.startsWith("Source URL:") ||
+                    pText.startsWith("Date:") ||
+                    pText.startsWith("Venue:")
+                  ) {
+                    return null;
+                  }
+                  
+                  // Highlight match score/outcome block
+                  const isScoreLine = pText.includes("beat") || pText.includes("won by") || (pText.includes("for") && pText.includes("/"));
+                  if (isScoreLine && idx <= 3) {
+                    return (
+                      <div key={idx} className="bg-bg-secondary/20 border-l-2 border-turf-emerald p-3 rounded-r text-header-text font-mono text-xs my-2 leading-relaxed">
+                        {pText}
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <p key={idx} className="text-justify font-sans leading-relaxed">
+                      {pText}
+                    </p>
+                  );
+                })}
+              </div>
+            </div>
+          </details>
         )}
 
       </div>
