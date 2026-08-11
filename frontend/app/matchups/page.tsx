@@ -153,7 +153,7 @@ export default function MatchupsPage() {
             Batter vs Bowler Matchup Simulator
           </h1>
           <p className="text-xs text-text-muted leading-relaxed max-w-2xl">
-            Estimate direct matchups, compare historical career profiles, and read LLM-generated briefings detailing bowler setups and risk mitigation patterns.
+            Estimate direct matchups, compare historical career profiles, and read AI-generated briefings detailing bowler setups and risk mitigation patterns.
           </p>
         </div>
 
@@ -287,7 +287,7 @@ export default function MatchupsPage() {
           <div className="premium-sports-card p-8 flex flex-col items-center justify-center min-h-[400px] bg-bg-secondary/5 gap-3">
             <span className="h-8 w-8 animate-spin rounded-full border-4 border-border-color border-t-turf-emerald" />
             <p className="font-mono text-[10px] text-text-muted uppercase tracking-widest animate-pulse">
-              Running historical aggregations & compiling tactical report...
+              Analyzing historical metrics & compiling tactical report...
             </p>
           </div>
         )}
@@ -314,7 +314,7 @@ export default function MatchupsPage() {
 
               {data.h2h.balls === 0 ? (
                 <div className="text-center py-6 text-xs text-text-muted font-mono uppercase tracking-wider">
-                  No historical head-to-head records found in the database. Matchup will rely purely on career baseline styles.
+                  No historical head-to-head records found. Matchup will rely purely on career baseline styles.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">

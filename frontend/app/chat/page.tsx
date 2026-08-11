@@ -17,9 +17,9 @@ type ChatSession = {
 };
 
 const suggestedPrompts = [
-  "Which team has the most wins in the current dataset?",
+  "Which team has the most wins in league history?",
   "Show recent match winners and venues.",
-  "How many matches were played at the Gaddafi Stadium?",
+  "How many matches were played at Gaddafi Stadium?",
   "Who won the match between Karachi Kings and Lahore Qalandars?",
 ];
 
@@ -67,7 +67,7 @@ export default function ChatPage() {
       messages: [
         {
           role: "ai",
-          content: "Database online. You can ask questions about PSL match histories, player runs, wickets, stadium frequencies, or team head-to-head records.",
+          content: "Analyst online. Ask questions about tournament history, player statistics, stadium metrics, or team head-to-head records.",
         },
       ],
       lastModified: Date.now(),
@@ -170,7 +170,7 @@ export default function ChatPage() {
     );
 
     setIsLoading(true);
-    setStatusMessage("Searching: Querying PSL database records...");
+    setStatusMessage("Analyzing: Processing tournament records...");
 
     try {
       const response = await sendChatMessage(userMessage);
@@ -196,7 +196,7 @@ export default function ChatPage() {
           return session;
         })
       );
-      setStatusMessage("Status: Ready for next inquiry");
+      setStatusMessage("Status: Ready for next analysis");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Connection failed.";
       setSessions((prevSessions) =>
@@ -211,7 +211,7 @@ export default function ChatPage() {
           return session;
         })
       );
-      setStatusMessage("Status: Query failed. Verify backend connection.");
+      setStatusMessage("Status: Analysis failed. Verify platform connection.");
     } finally {
       setIsLoading(false);
     }
@@ -225,7 +225,7 @@ export default function ChatPage() {
             <div className="flex flex-col items-center gap-3">
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-border-color border-t-turf-emerald" />
               <p className="font-mono text-[10px] text-text-muted uppercase tracking-widest">
-                Initializing Tactical Deck...
+                Loading CricTactix Pro Analyst...
               </p>
             </div>
           </div>
@@ -408,7 +408,7 @@ export default function ChatPage() {
               
               <div className="hidden sm:flex items-center gap-2 text-[9px] font-mono font-bold text-turf-emerald bg-bg-secondary/40 px-3 py-1.5 rounded border border-border-color">
                 <span className="h-1.5 w-1.5 rounded-full bg-turf-emerald" />
-                DATABASE ONLINE
+                ANALYST ACTIVE
               </div>
             </div>
 
@@ -463,7 +463,9 @@ export default function ChatPage() {
                           </>
                         )}
                       </div>
-                      <div className="leading-relaxed whitespace-pre-wrap text-xs text-header-text">{msg.content}</div>
+                      <div className="leading-relaxed text-xs text-header-text space-y-1">
+                        {renderFormattedText(msg.content)}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -486,7 +488,7 @@ export default function ChatPage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Query database (e.g., 'Runs scored by Babar Azam at Gaddafi Stadium')..."
+                  placeholder="Ask CricTactix AI (e.g., 'Runs scored by Babar Azam at Gaddafi Stadium')..."
                   className="flex-1 rounded premium-input px-4 py-3 text-xs text-header-text"
                   disabled={isLoading}
                 />
@@ -508,4 +510,53 @@ export default function ChatPage() {
       </div>
     </div>
   );
+}
+
+function renderFormattedText(text: string) {
+  if (!text) return null;
+  
+  const lines = text.split("\n");
+  return lines.map((line, idx) => {
+    // Check for headings (e.g. ### Heading)
+    if (line.startsWith("### ")) {
+      const headingText = line.replace("### ", "");
+      return (
+        <h4 key={idx} className="font-display font-bold text-turf-emerald text-[11px] tracking-wider uppercase mt-4 mb-2">
+          {parseBoldText(headingText)}
+        </h4>
+      );
+    }
+    
+    // Check for list items (e.g. - list item)
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      const bulletText = line.substring(2);
+      return (
+        <li key={idx} className="ml-4 list-disc text-xs text-header-text/90 mb-1.5 leading-relaxed">
+          {parseBoldText(bulletText)}
+        </li>
+      );
+    }
+    
+    // Empty paragraph lines
+    if (line.trim() === "") {
+      return <div key={idx} className="h-1.5" />;
+    }
+    
+    // Regular paragraph lines
+    return (
+      <p key={idx} className="text-xs text-header-text/90 mb-2 leading-relaxed">
+        {parseBoldText(line)}
+      </p>
+    );
+  });
+}
+
+function parseBoldText(text: string) {
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  return parts.map((part, index) => {
+    if (index % 2 === 1) {
+      return <strong key={index} className="font-extrabold text-header-text">{part}</strong>;
+    }
+    return part;
+  });
 }

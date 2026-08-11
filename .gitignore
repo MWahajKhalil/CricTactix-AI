@@ -24,6 +24,17 @@ Thumbs.db
 # Changelogs folder
 changelogs/
 
+
 #PROJECT_CHRONICLES
 PROJECT_CHRONICLES.md
 PROJECT_CHRONICLES.pdf
+
+# Documents
+Docs/
+
+#Screenshots
+Screenshots/
+
+#Other
+showcase_assets/
+

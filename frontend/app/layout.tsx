@@ -48,7 +48,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full bg-background text-foreground font-sans selection:bg-turf-emerald/20 selection:text-white transition-colors duration-300">
+      <body 
+        className="min-h-full bg-background text-foreground font-sans selection:bg-turf-emerald/20 selection:text-white transition-colors duration-300"
+        suppressHydrationWarning
+      >
         <div className="min-h-full flex flex-col justify-between">
           
           {/* PREMIUM BRANDED NAVBAR */}

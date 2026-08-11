@@ -64,7 +64,7 @@ export default async function DashboardPage() {
                 Tournament Stats
               </span>
               <h1 className="font-display text-2xl md:text-3xl font-bold text-header-text mt-1.5">Analytics Dashboard</h1>
-              <p className="text-xs text-text-muted font-mono mt-1">Data Source: SQLite Database &bull; PSL_T20</p>
+              <p className="text-xs text-text-muted font-mono mt-1">Data Source: Professional Tournament Index</p>
             </div>
             <Link href="/matches" className="inline-flex items-center justify-center rounded bg-header-text px-4 py-2 text-xs font-semibold text-background hover:opacity-90 transition">
               Browse Matches
@@ -75,15 +75,15 @@ export default async function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             
             <div className="premium-sports-card p-6 border-l-2 border-l-turf-emerald bg-bg-secondary/10">
-              <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">Matches Loaded</p>
+              <p className="text-span font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">Total Matches</p>
               <p className="mt-4 font-display text-4xl font-extrabold text-header-text tracking-tight">{count}</p>
-              <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">DB Cumulative</span>
+              <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">Active Archive</span>
             </div>
 
             <div className="premium-sports-card p-6 border-l-2 border-l-accent-cyan bg-bg-secondary/10">
               <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">Franchises Active</p>
               <p className="mt-4 font-display text-4xl font-extrabold text-header-text tracking-tight">{winPercentages.length}</p>
-              <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">Represented in Matches</span>
+              <span className="mt-2 inline-block text-[9px] font-mono text-text-muted">Active Franchises</span>
             </div>
 
             <div className="premium-sports-card p-6 border-l-2 border-l-metric-amber bg-bg-secondary/10">
@@ -192,7 +192,7 @@ export default async function DashboardPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-border-color pb-4">
               <div>
                 <h2 className="font-display text-xl font-bold text-header-text">Match Telemetry Log</h2>
-                <p className="text-text-muted text-[10px] font-mono mt-0.5">Historical index of ingested PSL fixtures</p>
+                <p className="text-text-muted text-[10px] font-mono mt-0.5">Historical index of tournament fixtures</p>
               </div>
               <Link href="/matches" className="text-xs font-bold text-turf-emerald hover:underline">
                 Full Matches Index &rarr;

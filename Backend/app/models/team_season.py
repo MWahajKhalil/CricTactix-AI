@@ -13,3 +13,5 @@ class TeamSeason(Base):
 
     team = relationship("Team", back_populates="seasons")
     players = relationship("TeamSeasonPlayer", back_populates="team_season")
+
+

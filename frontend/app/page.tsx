@@ -53,14 +53,14 @@ export default async function Home() {
             <div className="space-y-4">
               <span className="inline-flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest text-turf-emerald uppercase">
                 <span className="h-1.5 w-1.5 rounded-full bg-turf-emerald" />
-                PSL Database Engine Active
+                Pro Analytics Engine Active
               </span>
               <h1 className="font-display font-extrabold text-4xl sm:text-6xl text-header-text tracking-tight leading-none">
                 Cricket Insights <br />
                 From the <span className="text-turf-emerald">Crease</span>.
               </h1>
               <p className="max-w-md text-xs sm:text-sm leading-relaxed text-text-muted">
-                Analyze ball-by-ball datasets, explore scorecard statistics, and converse with an AI analyst trained on historical PSL match records.
+                Analyze ball-by-ball telemetry, explore scorecard statistics, and converse with an AI analyst trained on historical tournament records.
               </p>
             </div>
 
@@ -76,14 +76,14 @@ export default async function Home() {
             {/* Micro status feed */}
             <div className="border-t border-border-color pt-6 flex gap-8 text-[10px] font-mono text-text-muted uppercase tracking-wider">
               <div>
-                <p>System Engine Status</p>
+                <p>Platform Status</p>
                 <p className={`font-bold mt-1.5 ${isOnline ? "text-turf-emerald" : "text-ball-crimson"}`}>
-                  {isOnline ? "OPERATIONAL" : "API OFFLINE"}
+                  {isOnline ? "OPERATIONAL" : "OFFLINE"}
                 </p>
               </div>
               <div className="h-8 w-px bg-border-color" />
               <div>
-                <p>Ingested Matches</p>
+                <p>Total Matches</p>
                 <p className="font-bold mt-1.5 text-header-text">{matchData.count}</p>
               </div>
             </div>
@@ -256,7 +256,7 @@ export default async function Home() {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-border-color bg-bg-secondary/40 p-8 text-center text-text-muted text-xs font-mono">
-              Database contains no matches. Ingest PSL matches to begin.
+              Match archives are loading...
             </div>
           )}
         </section>
